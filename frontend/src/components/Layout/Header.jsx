@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
-export const Header = ({ userRole = 'Admin' }) => {
+export const Header = ({ userRole = 'Admin', businessName }) => {
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
