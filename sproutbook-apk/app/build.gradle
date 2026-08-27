@@ -1,0 +1,22 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.nothatcher.sproutbook'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.nothatcher.sproutbook'
+        minSdk 24
+        targetSdk 35
+        versionCode 164
+        versionName '1.64'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}
