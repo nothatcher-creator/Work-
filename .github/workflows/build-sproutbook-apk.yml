@@ -1,0 +1,131 @@
+name: Build SproutBook APK
+
+on:
+  push:
+    branches:
+      - sproutbook-apk-v164
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Restore SproutBook v163 web bundle and patch to v164
+        shell: bash
+        run: |
+          set -euo pipefail
+          WEB="sproutbook-apk/app/src/main/assets/www"
+          mkdir -p "$WEB" sproutbook-apk/app/src/main/res/drawable
+          BASE="https://html-classic.itch.zone/html/16618130"
+          files=(
+            index.html app.js styles.css
+            background.png logo.png baby_logo.png leaf.png tree_stages.png
+            nav_home.png nav_prep.png nav_parenting.png nav_more.png
+            Baby.png Toddler.png Teenager.png
+            bottle.svg check.svg copy.svg drop.svg heart.svg home.svg info.svg moon.svg star.svg timer.svg tooth.svg
+          )
+          for f in "${files[@]}"; do
+            echo "Downloading $f"
+            curl -fL --retry 3 --retry-delay 2 \
+              -A "Mozilla/5.0" \
+              -e "https://nothatcher.itch.io/sbook" \
+              "$BASE/$f" -o "$WEB/$f"
+            test -s "$WEB/$f"
+          done
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('sproutbook-apk/app/src/main/assets/www/app.js')
+          s = p.read_text(encoding='utf-8')
+
+          prefix = r'''async function sproutCopyText(text){
+            const t = String(text ?? "");
+            try{
+              if(navigator.clipboard && navigator.clipboard.writeText){
+                await navigator.clipboard.writeText(t);
+                return true;
+              }
+            }catch(e){}
+            try{
+              if(window.SproutAndroid && typeof window.SproutAndroid.copyText === "function"){
+                window.SproutAndroid.copyText(t);
+                return true;
+              }
+            }catch(e){}
+            return false;
+          }
+
+          function uid(prefix='id'){
+            return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
+          }
+
+          '''
+          if 'function uid(' not in s:
+              s = prefix + s
+          elif 'async function sproutCopyText(' not in s:
+              s = prefix.split("function uid(prefix='id')")[0] + s
+
+          old1 = '''      try{
+                await navigator.clipboard.writeText(t);
+                toast("Copied");
+              }catch(e){
+                toast("Copy failed");
+              }'''
+          new1 = '''      if(await sproutCopyText(t)) toast("Copied");
+              else toast("Copy failed");'''
+          s = s.replace(old1, new1)
+
+          old2 = '''      try{ await navigator.clipboard.writeText(txt); toast("Copied."); }
+              catch(e){ toast("Copy not available here — long press and select text."); }'''
+          new2 = '''      if(await sproutCopyText(txt)) toast("Copied.");
+              else toast("Copy not available here — long press and select text.");'''
+          s = s.replace(old2, new2)
+
+          p.write_text(s, encoding='utf-8')
+
+          idx = Path('sproutbook-apk/app/src/main/assets/www/index.html')
+          t = idx.read_text(encoding='utf-8').replace('?v=163', '?v=164')
+          idx.write_text(t, encoding='utf-8')
+          PY
+
+          cp "$WEB/logo.png" sproutbook-apk/app/src/main/res/drawable/sprout_icon.png
+          grep -q "function uid" "$WEB/app.js"
+          test -s "$WEB/background.png"
+
+      - name: Build debug APK
+        working-directory: sproutbook-apk
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Rename APK
+        run: cp sproutbook-apk/app/build/outputs/apk/debug/app-debug.apk SproutBook-v164.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SproutBook-v164-APK
+          path: SproutBook-v164.apk
+          if-no-files-found: error
+          retention-days: 7
