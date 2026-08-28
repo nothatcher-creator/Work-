@@ -43,7 +43,7 @@ jobs:
       - name: Add Basic Pitch LiteRT model
         run: |
           curl -fL --retry 4 --retry-delay 3 \
-            "https://huggingface.co/litert-community/Basic-Pitch-LiteRT/resolve/main/basic_pitch.tflite?download=true" \
+            "https://huggingface.co/litert-community/Basic-Pitch-LiteRT/resolve/main/basicpitch.tflite?download=true" \
             -o appsrc/app/src/main/assets/basic_pitch.tflite
           test $(stat -c%s appsrc/app/src/main/assets/basic_pitch.tflite) -gt 500000
 
