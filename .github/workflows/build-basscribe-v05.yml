@@ -1,0 +1,92 @@
+name: Build Basscribe v0.5
+
+on:
+  push:
+    branches: ["basscribe-v05-build"]
+    paths:
+      - "basscribe_v05/**"
+      - ".github/workflows/build-basscribe-v05.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout build overlays
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android native toolchain
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "cmake;3.22.1" "ndk;26.1.10909125"
+
+      - name: Clone Demucs Android engine
+        run: |
+          git lfs install
+          git clone --depth 1 https://github.com/sevagh/demucs-android.git appsrc
+          cd appsrc
+          git lfs pull
+          test $(stat -c%s app/src/main/assets/ggml-model-htdemucs-4s-f16.bin) -gt 80000000
+
+      - name: Add Basic Pitch LiteRT model
+        run: |
+          curl -fL --retry 4 --retry-delay 3 \
+            "https://huggingface.co/litert-community/Basic-Pitch-LiteRT/resolve/main/basic_pitch.tflite?download=true" \
+            -o appsrc/app/src/main/assets/basic_pitch.tflite
+          test $(stat -c%s appsrc/app/src/main/assets/basic_pitch.tflite) -gt 500000
+
+      - name: Apply Basscribe v0.5 app
+        run: |
+          cp basscribe_v05/overlay/MainActivity.kt appsrc/app/src/main/java/com/github/sevagh/demucs_android/MainActivity.kt
+          cp basscribe_v05/overlay/BassPitch.kt appsrc/app/src/main/java/com/github/sevagh/demucs_android/BassPitch.kt
+          cp basscribe_v05/overlay/BassTabView.kt appsrc/app/src/main/java/com/github/sevagh/demucs_android/BassTabView.kt
+          cp basscribe_v05/overlay/DemucsAndroidForegroundService.kt appsrc/app/src/main/java/com/github/sevagh/demucs_android/DemucsForegroundService.kt
+          cp basscribe_v05/overlay/AndroidManifest.xml appsrc/app/src/main/AndroidManifest.xml
+          cp basscribe_v05/overlay/app-build.gradle.kts appsrc/app/build.gradle.kts
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('appsrc/app/src/main/java/com/github/sevagh/demucs_android/BassPitch.kt')
+          s=p.read_text()
+          s=s.replace('private val inBuf: List<com.google.ai.edge.litert.TensorBuffer>', 'private val inBuf')
+          s=s.replace('private val outBuf: List<com.google.ai.edge.litert.TensorBuffer>', 'private val outBuf')
+          p.write_text(s)
+          PY
+
+      - name: Build release APK
+        working-directory: appsrc
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx6g
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon clean assembleRelease --stacktrace
+
+      - name: Verify neural payload
+        run: |
+          APK=$(find appsrc/app/build/outputs/apk/release -name '*.apk' | head -1)
+          test -n "$APK"
+          unzip -l "$APK" | grep -q 'assets/ggml-model-htdemucs-4s-f16.bin'
+          unzip -l "$APK" | grep -q 'assets/basic_pitch.tflite'
+          unzip -l "$APK" | grep -q 'lib/arm64-v8a/libdemucs_ndk.so'
+          mkdir -p dist
+          cp "$APK" dist/Basscribe-v0.5.0-arm64-unsigned.apk
+          ls -lh dist/Basscribe-v0.5.0-arm64-unsigned.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Basscribe-v0.5.0-arm64-unsigned
+          path: dist/Basscribe-v0.5.0-arm64-unsigned.apk
+          if-no-files-found: error
+          retention-days: 7
