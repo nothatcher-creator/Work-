@@ -62,6 +62,33 @@ jobs:
           grep -q 'version/name="0.31.0-stage31"' project/export_presets.cfg
           grep -q 'package/unique_name="com.rotspire.game"' project/export_presets.cfg
 
+      - name: Enable Android ETC2 ASTC texture import
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('project/project.godot')
+          text = path.read_text(encoding='utf-8')
+          key = 'textures/vram_compression/import_etc2_astc=true'
+          pattern = r'(?m)^textures/vram_compression/import_etc2_astc\s*=\s*(?:true|false)\s*$'
+
+          if re.search(pattern, text):
+              text = re.sub(pattern, key, text)
+          elif '[rendering]' in text:
+              text = text.replace('[rendering]', '[rendering]\n\n' + key, 1)
+          else:
+              text = text.rstrip() + '\n\n[rendering]\n\n' + key + '\n'
+
+          path.write_text(text, encoding='utf-8')
+          assert key in path.read_text(encoding='utf-8')
+          print('Enabled rendering/textures/vram_compression/import_etc2_astc')
+          PY
+          rm -rf project/.godot/imported
+          grep -n 'textures/vram_compression/import_etc2_astc=true' project/project.godot
+
       - name: Rebuild deterministic generated assets
         shell: bash
         run: |
@@ -147,6 +174,7 @@ jobs:
           assert manifest.get('android_package') == 'com.rotspire.game'
           assert manifest.get('android_network_permissions') is False
           assert '0.31.0-stage31' in (root/'scripts/core/GameVersion.gd').read_text()
+          assert 'textures/vram_compression/import_etc2_astc=true' in (root/'project.godot').read_text()
           print('Compact Stage 31 contract PASS')
           PY
 
