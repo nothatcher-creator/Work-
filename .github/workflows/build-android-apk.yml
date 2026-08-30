@@ -1,0 +1,202 @@
+name: Build Rotspire Android APK
+
+on:
+  push:
+    branches:
+      - rotspire-stage31-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GODOT_RELEASE: 4.7.2-stable
+      GODOT_TEMPLATE_VERSION: 4.7.2.stable
+      GODOT_TEMPLATE_SHA256: f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011
+      ANDROID_PLATFORM: android-35
+      ANDROID_BUILD_TOOLS: 35.0.0
+      ROTSPIRE_RUNTIME_XZ_SHA256: 0120609b333e48b221cb59db1789677c17cdd33c111815c482a0a19f6307ce51
+
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform and signing tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;${ANDROID_PLATFORM}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}"
+          "${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/apksigner" version
+          "${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/aapt" version
+
+      - name: Reconstruct and verify Rotspire source payload
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test "$(find payload -maxdepth 1 -type f -name 'runtime.b64.*' | wc -l)" -eq 19
+          test "$(stat -c %s payload/runtime.b64.018)" -eq 3320
+          cat payload/runtime.b64.* | tr -d '\n\r' | base64 --decode > rotspire-stage31-runtime.tar.xz
+          echo "${ROTSPIRE_RUNTIME_XZ_SHA256}  rotspire-stage31-runtime.tar.xz" | sha256sum --check -
+          rm -rf project
+          mkdir -p project
+          tar -xJf rotspire-stage31-runtime.tar.xz -C project
+          test -f project/project.godot
+          test -f project/export_presets.cfg
+          grep -q 'version/name="0.31.0-stage31"' project/export_presets.cfg
+          grep -q 'package/unique_name="com.rotspire.game"' project/export_presets.cfg
+
+      - name: Rebuild deterministic generated assets
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check pillow numpy
+          python3 project/tools/build_app_icons.py
+          python3 project/tools/build_art_atlases.py
+          python3 project/tools/build_audio_assets.py
+          test -s project/assets/app/rotspire_icon_512.png
+          test -s project/assets/art/atlases/actors.png
+          test -s project/audio/music/music_menu.ogg
+
+      - name: Download Godot 4.7.2
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl --fail --location --retry 5 --retry-delay 3 \
+            -o godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
+          unzip -q godot.zip -d godot-bin
+          chmod +x "godot-bin/Godot_v${GODOT_RELEASE}_linux.x86_64"
+          "godot-bin/Godot_v${GODOT_RELEASE}_linux.x86_64" --version
+
+      - name: Cache extracted Android export templates
+        id: template-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates/4.7.2.stable
+          key: godot-4.7.2-stable-android-templates-f298490b8d44
+
+      - name: Download and install matching Android export templates
+        if: steps.template-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl --fail --location --retry 5 --retry-delay 3 \
+            -o templates.tpz \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          echo "${GODOT_TEMPLATE_SHA256}  templates.tpz" | sha256sum --check -
+          TEMPLATE_DIR="${HOME}/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}"
+          mkdir -p "${TEMPLATE_DIR}"
+          unzip -j templates.tpz \
+            templates/android_debug.apk \
+            templates/android_release.apk \
+            templates/version.txt \
+            -d "${TEMPLATE_DIR}"
+          test -s "${TEMPLATE_DIR}/android_debug.apk"
+          test -s "${TEMPLATE_DIR}/android_release.apk"
+
+      - name: Configure Godot Android editor settings and debug signing
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "${HOME}/.android" "${HOME}/.config/godot"
+          rm -f "${HOME}/.android/debug.keystore"
+          keytool -genkeypair -v \
+            -keystore "${HOME}/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Rotspire,C=CA"
+          cat > "${HOME}/.config/godot/editor_settings-4.7.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/debug_keystore = "${HOME}/.android/debug.keystore"
+          export/android/debug_keystore_pass = "android"
+          export/android/java_sdk_path = "${JAVA_HOME}"
+          export/android/android_sdk_path = "${ANDROID_HOME}"
+          EOF
+
+      - name: Validate project before export
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 project/tests/run_all.py
+          python3 project/tests/validate_stage31.py
+          GODOT="godot-bin/Godot_v${GODOT_RELEASE}_linux.x86_64"
+          "$GODOT" --headless --editor --quit --path project
+
+      - name: Export signed debug APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p project/builds/android
+          GODOT="godot-bin/Godot_v${GODOT_RELEASE}_linux.x86_64"
+          "$GODOT" --headless --path project \
+            --export-debug Android \
+            project/builds/android/rotspire-stage31-debug.apk
+          test -s project/builds/android/rotspire-stage31-debug.apk
+
+      - name: Inspect APK contract
+        shell: bash
+        run: |
+          set -euxo pipefail
+          APK="project/builds/android/rotspire-stage31-debug.apk"
+          BUILD_TOOLS="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee project/builds/android/apksigner.txt
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee project/builds/android/aapt-badging.txt
+          "$BUILD_TOOLS/aapt" dump permissions "$APK" | tee project/builds/android/aapt-permissions.txt
+          grep -q "package: name='com.rotspire.game'" project/builds/android/aapt-badging.txt
+          grep -q "application-label:'Rotspire'" project/builds/android/aapt-badging.txt
+          if grep -Eq 'android.permission.(INTERNET|ACCESS_NETWORK_STATE|ACCESS_WIFI_STATE)' project/builds/android/aapt-permissions.txt; then
+            echo "Unexpected network permission" >&2
+            exit 21
+          fi
+          unzip -l "$APK" | tee project/builds/android/apk-files.txt
+          grep -q 'lib/arm64-v8a/' project/builds/android/apk-files.txt
+          if grep -Eq 'lib/(armeabi-v7a|x86|x86_64)/' project/builds/android/apk-files.txt; then
+            echo "Unexpected non-ARM64 native library" >&2
+            exit 22
+          fi
+          sha256sum "$APK" | tee project/builds/android/rotspire-stage31-debug.apk.sha256
+
+      - name: Upload installable APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rotspire-stage31-android-apk
+          path: |
+            project/builds/android/rotspire-stage31-debug.apk
+            project/builds/android/rotspire-stage31-debug.apk.sha256
+            project/builds/android/apksigner.txt
+            project/builds/android/aapt-badging.txt
+            project/builds/android/aapt-permissions.txt
+            project/builds/android/apk-files.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
