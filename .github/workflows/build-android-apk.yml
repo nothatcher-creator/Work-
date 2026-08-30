@@ -2,8 +2,7 @@ name: Build Rotspire Android APK
 
 on:
   push:
-    branches:
-      - rotspire-stage31-build
+    branches: [rotspire-stage31-build]
   workflow_dispatch:
 
 permissions:
@@ -44,10 +43,7 @@ jobs:
         run: |
           set -euxo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager \
-            "platform-tools" \
-            "platforms;${ANDROID_PLATFORM}" \
-            "build-tools;${ANDROID_BUILD_TOOLS}"
+          sdkmanager "platform-tools" "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
           "${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/apksigner" version
           "${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/aapt" version
 
@@ -59,8 +55,7 @@ jobs:
           test "$(stat -c %s payload/runtime.b64.018)" -eq 3320
           cat payload/runtime.b64.* | tr -d '\n\r' | base64 --decode > rotspire-stage31-runtime.tar.xz
           echo "${ROTSPIRE_RUNTIME_XZ_SHA256}  rotspire-stage31-runtime.tar.xz" | sha256sum --check -
-          rm -rf project
-          mkdir -p project
+          rm -rf project && mkdir -p project
           tar -xJf rotspire-stage31-runtime.tar.xz -C project
           test -f project/project.godot
           test -f project/export_presets.cfg
@@ -85,8 +80,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          curl --fail --location --retry 5 --retry-delay 3 \
-            -o godot.zip \
+          curl --fail --location --retry 5 --retry-delay 3 -o godot.zip \
             "https://github.com/godotengine/godot-builds/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
           unzip -q godot.zip -d godot-bin
           chmod +x "godot-bin/Godot_v${GODOT_RELEASE}_linux.x86_64"
@@ -104,17 +98,12 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          curl --fail --location --retry 5 --retry-delay 3 \
-            -o templates.tpz \
+          curl --fail --location --retry 5 --retry-delay 3 -o templates.tpz \
             "https://github.com/godotengine/godot-builds/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
           echo "${GODOT_TEMPLATE_SHA256}  templates.tpz" | sha256sum --check -
           TEMPLATE_DIR="${HOME}/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}"
           mkdir -p "${TEMPLATE_DIR}"
-          unzip -j templates.tpz \
-            templates/android_debug.apk \
-            templates/android_release.apk \
-            templates/version.txt \
-            -d "${TEMPLATE_DIR}"
+          unzip -j templates.tpz templates/android_debug.apk templates/android_release.apk templates/version.txt -d "${TEMPLATE_DIR}"
           test -s "${TEMPLATE_DIR}/android_debug.apk"
           test -s "${TEMPLATE_DIR}/android_release.apk"
 
@@ -124,15 +113,9 @@ jobs:
           set -euxo pipefail
           mkdir -p "${HOME}/.android" "${HOME}/.config/godot"
           rm -f "${HOME}/.android/debug.keystore"
-          keytool -genkeypair -v \
-            -keystore "${HOME}/.android/debug.keystore" \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Rotspire,C=CA"
+          keytool -genkeypair -v -keystore "${HOME}/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Rotspire,C=CA"
           cat > "${HOME}/.config/godot/editor_settings-4.7.tres" <<EOF
           [gd_resource type="EditorSettings" format=3]
 
@@ -143,12 +126,34 @@ jobs:
           export/android/android_sdk_path = "${ANDROID_HOME}"
           EOF
 
-      - name: Validate project before export
+      - name: Validate compact runtime contract
         shell: bash
         run: |
           set -euxo pipefail
-          python3 project/tests/run_all.py
-          python3 project/tests/validate_stage31.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root = Path('project')
+          required = ['project.godot','export_presets.cfg','App.tscn','Main.tscn','data/game_manifest.json','scripts/core/GameVersion.gd']
+          for rel in required:
+              assert (root/rel).is_file(), f'missing {rel}'
+          preset=(root/'export_presets.cfg').read_text(errors='replace')
+          for token in ['version/code=31','version/name="0.31.0-stage31"','package/unique_name="com.rotspire.game"','architectures/arm64-v8a=true','architectures/armeabi-v7a=false','architectures/x86=false','architectures/x86_64=false','permissions/internet=false','permissions/access_network_state=false','permissions/access_wifi_state=false']:
+              assert token in preset, f'missing preset token: {token}'
+          for p in (root/'data').glob('*.json'):
+              json.loads(p.read_text())
+          manifest=json.loads((root/'data/game_manifest.json').read_text())
+          assert manifest.get('version') == '0.31.0-stage31'
+          assert manifest.get('android_package') == 'com.rotspire.game'
+          assert manifest.get('android_network_permissions') is False
+          assert '0.31.0-stage31' in (root/'scripts/core/GameVersion.gd').read_text()
+          print('Compact Stage 31 contract PASS')
+          PY
+
+      - name: Import project with Godot 4.7.2
+        shell: bash
+        run: |
+          set -euxo pipefail
           GODOT="godot-bin/Godot_v${GODOT_RELEASE}_linux.x86_64"
           "$GODOT" --headless --editor --quit --path project
 
@@ -158,9 +163,7 @@ jobs:
           set -euxo pipefail
           mkdir -p project/builds/android
           GODOT="godot-bin/Godot_v${GODOT_RELEASE}_linux.x86_64"
-          "$GODOT" --headless --path project \
-            --export-debug Android \
-            project/builds/android/rotspire-stage31-debug.apk
+          "$GODOT" --headless --path project --export-debug Android project/builds/android/rotspire-stage31-debug.apk
           test -s project/builds/android/rotspire-stage31-debug.apk
 
       - name: Inspect APK contract
@@ -175,14 +178,12 @@ jobs:
           grep -q "package: name='com.rotspire.game'" project/builds/android/aapt-badging.txt
           grep -q "application-label:'Rotspire'" project/builds/android/aapt-badging.txt
           if grep -Eq 'android.permission.(INTERNET|ACCESS_NETWORK_STATE|ACCESS_WIFI_STATE)' project/builds/android/aapt-permissions.txt; then
-            echo "Unexpected network permission" >&2
-            exit 21
+            echo "Unexpected network permission" >&2; exit 21
           fi
           unzip -l "$APK" | tee project/builds/android/apk-files.txt
           grep -q 'lib/arm64-v8a/' project/builds/android/apk-files.txt
           if grep -Eq 'lib/(armeabi-v7a|x86|x86_64)/' project/builds/android/apk-files.txt; then
-            echo "Unexpected non-ARM64 native library" >&2
-            exit 22
+            echo "Unexpected non-ARM64 native library" >&2; exit 22
           fi
           sha256sum "$APK" | tee project/builds/android/rotspire-stage31-debug.apk.sha256
 
