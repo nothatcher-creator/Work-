@@ -1,0 +1,240 @@
+name: Basscribe alpha6 ARM64 + emulator QA
+
+on:
+  push:
+    branches: ["basscribe-alpha6-midi-final"]
+    paths:
+      - "ci/**"
+      - ".github/workflows/build-basscribe-alpha6-final.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: basscribe-alpha6-final-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA256: f88050958409ffc5ebfd9792be77a46d9a889f40dfe47fc7980d1e5ef501f8ab
+
+jobs:
+  arm64:
+    name: ARM64 build + regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install host test tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake ninja-build g++ lua5.4 unzip zip
+      - name: Reconstruct exact alpha6 source snapshot
+        run: |
+          mkdir -p /tmp/basscribe-source
+          cat ci/basscribe-alpha6-source.part*.b64 | base64 -d > /tmp/basscribe-source.zip
+          echo "$SOURCE_SHA256  /tmp/basscribe-source.zip" | sha256sum -c -
+          unzip -q /tmp/basscribe-source.zip -d /tmp/basscribe-source
+          test -f /tmp/basscribe-source/basscribe_alpha6/build_android.sh
+      - name: Run alpha6 regressions
+        working-directory: /tmp/basscribe-source/basscribe_alpha6
+        run: |
+          set -euxo pipefail
+          lua5.4 tests/test_fingering.lua
+          lua5.4 tests/test_slide_postprocess.lua
+          lua5.4 tests/test_midi.lua
+          python3 tests/test_midi_app_integration.py
+          python3 tests/test_alpha6_source.py
+          g++ -std=c++17 -O2 tests/test_pitch_periodicity.cpp -o /tmp/test_pitch_periodicity
+          /tmp/test_pitch_periodicity
+      - name: Build installable ARM64 APK
+        working-directory: /tmp/basscribe-source/basscribe_alpha6
+        env:
+          BASSCRIBE_ABI: arm64-v8a
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx6g
+        run: |
+          chmod +x build_android.sh
+          ./build_android.sh
+      - name: Verify ARM64 payload, models, signature and alignment
+        working-directory: /tmp/basscribe-source/basscribe_alpha6
+        run: |
+          set -euxo pipefail
+          APK=dist/Basscribe-v0.5.0-ai-alpha6-arm64.apk
+          test -s "$APK"
+          unzip -Z1 "$APK" | grep -q '^lib/arm64-v8a/libbasscribe_ai.so$'
+          unzip -Z1 "$APK" | grep -q '^lib/arm64-v8a/libonnxruntime.so$'
+          if unzip -Z1 "$APK" | grep -Eq '^lib/(x86|x86_64|armeabi-v7a)/'; then
+            echo 'Unexpected non-ARM64 native library in ARM64 APK' >&2
+            exit 1
+          fi
+          unzip -p "$APK" assets/game.love > /tmp/game.love
+          unzip -Z1 /tmp/game.love | grep -q '^models/htdemucs_ft_bass_fp16weights.onnx$'
+          unzip -Z1 /tmp/game.love | grep -q '^models/basic_pitch_nmp.onnx$'
+          unzip -p /tmp/game.love main.lua | grep -q 'BASSCRIBE_MIDI_IMPORT version=%s'
+          unzip -p /tmp/game.love main.lua | grep -q 'MIDI READER'
+          unzip -p /tmp/game.love main.lua | grep -q 'Export MIDI'
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$ZIPALIGN" -c -P 16 -v 4 "$APK"
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp "$APK" "$GITHUB_WORKSPACE/out/Basscribe-v0.5.0-ai-alpha6-arm64-final.apk"
+          sha256sum "$GITHUB_WORKSPACE/out/Basscribe-v0.5.0-ai-alpha6-arm64-final.apk" | tee "$GITHUB_WORKSPACE/out/Basscribe-v0.5.0-ai-alpha6-arm64-final.apk.sha256"
+      - name: Upload final ARM64 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Basscribe-v0.5.0-ai-alpha6-arm64-final
+          path: out/Basscribe-v0.5.0-ai-alpha6-arm64-final.apk*
+          if-no-files-found: error
+          retention-days: 7
+
+  emulator:
+    name: x86_64 emulator MIDI-reader QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install host test tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake ninja-build g++ lua5.4 unzip zip
+      - name: Reconstruct exact alpha6 source snapshot
+        run: |
+          mkdir -p /tmp/basscribe-source
+          cat ci/basscribe-alpha6-source.part*.b64 | base64 -d > /tmp/basscribe-source.zip
+          echo "$SOURCE_SHA256  /tmp/basscribe-source.zip" | sha256sum -c -
+          unzip -q /tmp/basscribe-source.zip -d /tmp/basscribe-source
+      - name: Run MIDI regressions before emulator build
+        working-directory: /tmp/basscribe-source/basscribe_alpha6
+        run: |
+          lua5.4 tests/test_midi.lua
+          python3 tests/test_midi_app_integration.py
+      - name: Build x86_64 QA APK
+        working-directory: /tmp/basscribe-source/basscribe_alpha6
+        env:
+          BASSCRIBE_ABI: x86_64
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx6g
+        run: |
+          chmod +x build_android.sh
+          ./build_android.sh
+          test -s dist/Basscribe-v0.5.0-ai-alpha6-x86_64.apk
+      - name: Create MIDI picker fixture and UI-tree picker helper
+        run: |
+          mkdir -p qa
+          python3 - <<'PY'
+          import struct
+          def be16(n): return struct.pack('>H', n)
+          def be32(n): return struct.pack('>I', n)
+          tr=b''.join([
+              bytes([0,0xFF,0x03,0x0C])+b'Basscribe QA',
+              bytes([0,0xFF,0x51,3,0x07,0xA1,0x20]),
+              bytes([0,0xC0,33]),
+              bytes([0,0x90,40,100]), bytes([0x83,0x60,0x80,40,0]),
+              bytes([0,0x90,43,100]), bytes([0x83,0x60,0x80,43,0]),
+              bytes([0,0x90,45,100]), bytes([0x83,0x60,0x80,45,0]),
+              bytes([0,0x90,48,100]), bytes([0x83,0x60,0x80,48,0]),
+              bytes([0,0xFF,0x2F,0]),
+          ])
+          data=b'MThd'+be32(6)+be16(0)+be16(1)+be16(480)+b'MTrk'+be32(len(tr))+tr
+          open('qa/Basscribe_QA.mid','wb').write(data)
+          PY
+          cat > qa/ui_pick.py <<'PY'
+          import re,sys,xml.etree.ElementTree as ET
+          xml_path,needle=sys.argv[1],sys.argv[2].lower()
+          root=ET.parse(xml_path).getroot()
+          for node in root.iter('node'):
+              hay=' '.join(node.attrib.get(k,'') for k in ('text','content-desc','resource-id')).lower()
+              if needle in hay:
+                  m=re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]',node.attrib.get('bounds',''))
+                  if m:
+                      x1,y1,x2,y2=map(int,m.groups())
+                      print((x1+x2)//2,(y1+y2)//2)
+                      raise SystemExit(0)
+          raise SystemExit(2)
+          PY
+      - name: Enable KVM group permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android emulator MIDI import QA
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          disk-size: 6000M
+          heap-size: 2048M
+          script: |
+            set -euxo pipefail
+            mkdir -p qa/evidence
+            APK=/tmp/basscribe-source/basscribe_alpha6/dist/Basscribe-v0.5.0-ai-alpha6-x86_64.apk
+            adb install -r "$APK"
+            adb push qa/Basscribe_QA.mid /sdcard/Download/Basscribe_QA.mid
+            adb logcat -c
+            adb shell am force-stop com.brad.basscrib7 || true
+            adb shell monkey -p com.brad.basscrib7 -c android.intent.category.LAUNCHER 1
+            sleep 4
+            dump_ui() {
+              local name="$1"
+              adb shell uiautomator dump /sdcard/window.xml >/dev/null
+              adb pull /sdcard/window.xml "qa/evidence/${name}.xml" >/dev/null
+            }
+            tap_tree_node() {
+              local xml="$1" needle="$2"
+              local xy
+              xy=$(python3 qa/ui_pick.py "$xml" "$needle")
+              read -r x y <<<"$xy"
+              adb shell input tap "$x" "$y"
+            }
+            dump_ui picker-initial
+            if ! python3 qa/ui_pick.py qa/evidence/picker-initial.xml Basscribe_QA.mid >/dev/null 2>&1; then
+              if python3 qa/ui_pick.py qa/evidence/picker-initial.xml Downloads >/dev/null 2>&1; then
+                tap_tree_node qa/evidence/picker-initial.xml Downloads
+                sleep 2
+                dump_ui picker-downloads
+              else
+                cp qa/evidence/picker-initial.xml qa/evidence/picker-downloads.xml
+              fi
+            else
+              cp qa/evidence/picker-initial.xml qa/evidence/picker-downloads.xml
+            fi
+            tap_tree_node qa/evidence/picker-downloads.xml Basscribe_QA.mid
+            sleep 6
+            adb shell uiautomator dump /sdcard/app.xml >/dev/null || true
+            adb pull /sdcard/app.xml qa/evidence/app-after-midi.xml >/dev/null || true
+            adb exec-out screencap -p > qa/evidence/midi-reader.png
+            PID=$(adb shell pidof -s com.brad.basscrib7 | tr -d '\r')
+            test -n "$PID"
+            adb logcat -d --pid "$PID" > qa/evidence/logcat.txt
+            grep -q 'BASSCRIBE_MIDI_IMPORT version=0.5.0-ai-alpha6' qa/evidence/logcat.txt
+            if grep -Eq 'FATAL EXCEPTION|SIGSEGV|SIGABRT' qa/evidence/logcat.txt; then
+              echo 'Crash signature found in Basscribe logcat' >&2
+              exit 1
+            fi
+            adb shell dumpsys activity activities | grep -q 'com.brad.basscrib7'
+            adb shell pm path com.brad.basscrib7 > qa/evidence/package-path.txt
+            adb shell dumpsys package com.brad.basscrib7 | grep -E 'versionName|versionCode|primaryCpuAbi' > qa/evidence/package-info.txt
+      - name: Upload emulator QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Basscribe-alpha6-emulator-QA
+          path: qa/evidence/
+          if-no-files-found: warn
+          retention-days: 7
