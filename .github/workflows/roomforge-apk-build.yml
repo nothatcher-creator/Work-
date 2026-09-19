@@ -53,8 +53,19 @@ jobs:
           set -euo pipefail
                     sed -i "s/compileSdk = 37/compileSdk = 36/" app/build.gradle.kts
           sed -i "s/targetSdk = 37/targetSdk = 36/" app/build.gradle.kts
-          sed -i 's/androidx.compose:compose-bom:2026.09.00/androidx.compose:compose-bom:2026.07.00/' app/build.gradle.kts
-          sed -i 's/io.github.sceneview:arsceneview:4.37.0/io.github.sceneview:arsceneview:4.33.0/' app/build.gradle.kts
+          python3 - <<'PYGRADLE'
+          from pathlib import Path
+          p = Path("app/build.gradle.kts")
+          s = p.read_text()
+          s = s.replace('    implementation(platform("androidx.compose:compose-bom:2026.09.00"))\n', '')
+          s = s.replace('implementation("androidx.compose.ui:ui")', 'implementation("androidx.compose.ui:ui:1.11.4")')
+          s = s.replace('implementation("androidx.compose.ui:ui-tooling-preview")', 'implementation("androidx.compose.ui:ui-tooling-preview:1.11.4")')
+          s = s.replace('implementation("androidx.compose.foundation:foundation")', 'implementation("androidx.compose.foundation:foundation:1.11.4")')
+          s = s.replace('implementation("androidx.compose.material3:material3")', 'implementation("androidx.compose.material3:material3:1.4.0")')
+          s = s.replace('debugImplementation("androidx.compose.ui:ui-tooling")', 'debugImplementation("androidx.compose.ui:ui-tooling:1.11.4")')
+          s = s.replace('io.github.sceneview:arsceneview:4.37.0', 'io.github.sceneview:arsceneview:4.33.0')
+          p.write_text(s)
+          PYGRADLE
           python3 - <<'PY'
           from pathlib import Path
           p = Path("app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt")
