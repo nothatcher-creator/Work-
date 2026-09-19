@@ -46,13 +46,30 @@ jobs:
           unzip -q /tmp/gradle.zip -d /tmp/gradle
           echo "/tmp/gradle/gradle-9.6.0/bin" >> "$GITHUB_PATH"
 
-      - name: Patch supported Android API
+      - name: Patch build compatibility
         working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
         shell: bash
         run: |
+          set -euo pipefail
           sed -i "s/compileSdk = 37/compileSdk = 36/" app/build.gradle.kts
           sed -i "s/targetSdk = 37/targetSdk = 36/" app/build.gradle.kts
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt")
+          s = p.read_text()
+          if "import androidx.compose.foundation.isSystemInDarkTheme" not in s:
+              s = s.replace(
+                  "import androidx.compose.foundation.background\n",
+                  "import androidx.compose.foundation.background\nimport androidx.compose.foundation.isSystemInDarkTheme\n"
+              )
+          s = s.replace(
+              'ExtendedFloatingActionButton(onClick = onNewScan, text = { Text("New room scan") })',
+              'ExtendedFloatingActionButton(onClick = onNewScan) { Text("New room scan") }'
+          )
+          p.write_text(s)
+          PY
           grep -E "compileSdk|targetSdk" app/build.gradle.kts
+          grep -n "isSystemInDarkTheme\|ExtendedFloatingActionButton" app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt
 
       - name: Build RoomForge debug APK
         working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
