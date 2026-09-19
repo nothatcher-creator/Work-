@@ -1,4 +1,4 @@
-package com.nothatcher.sproutbook
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)\n\npackage com.nothatcher.sproutbook
 
 import android.content.ClipData
 import android.content.ClipboardManager
