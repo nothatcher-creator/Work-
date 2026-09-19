@@ -91,7 +91,10 @@ func _ensure_state() -> void:
         c["milestones"] = c.get("milestones",{})
         c["sleep"] = c.get("sleep",[])
 
+
 func _build_shell() -> void:
+    theme = _make_app_theme()
+
     var bg = ForestBackground.new()
     bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     add_child(bg)
@@ -101,36 +104,39 @@ func _build_shell() -> void:
     root.add_theme_constant_override("separation", 0)
     add_child(root)
 
+    # Compact app bar: child + stage stay reachable without eating the screen.
     var top_panel := PanelContainer.new()
-    top_panel.custom_minimum_size = Vector2(0, 108)
-    top_panel.add_theme_stylebox_override("panel", _style(BG_PANEL_2, 0, Color.TRANSPARENT, 0))
+    top_panel.custom_minimum_size = Vector2(0, 92)
+    top_panel.add_theme_stylebox_override("panel", _style(Color(0.035,0.085,0.063,0.98), 0, Color(0.35,0.55,0.43,0.22), 0))
     root.add_child(top_panel)
 
     var top_margin := MarginContainer.new()
-    _margins(top_margin, 22, 18, 22, 14)
+    _margins(top_margin, 18, 14, 18, 12)
     top_panel.add_child(top_margin)
 
     var top_row := HBoxContainer.new()
-    top_row.add_theme_constant_override("separation", 12)
+    top_row.add_theme_constant_override("separation", 10)
     top_margin.add_child(top_row)
 
     child_select = OptionButton.new()
-    child_select.custom_minimum_size = Vector2(210, 64)
-    child_select.add_theme_font_size_override("font_size", 23)
+    child_select.custom_minimum_size = Vector2(215, 56)
+    child_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    child_select.add_theme_font_size_override("font_size", 20)
     child_select.item_selected.connect(_on_child_selected)
     top_row.add_child(child_select)
 
     mode_button = Button.new()
-    mode_button.custom_minimum_size = Vector2(180, 64)
-    mode_button.add_theme_font_size_override("font_size", 21)
+    mode_button.custom_minimum_size = Vector2(150, 56)
+    mode_button.add_theme_font_size_override("font_size", 18)
+    mode_button.focus_mode = Control.FOCUS_NONE
     mode_button.pressed.connect(Callable(self,"show_tool").bind("profile"))
     top_row.add_child(mode_button)
 
-    var spacer := Control.new()
-    spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    top_row.add_child(spacer)
-
-    var brand := _label("SproutBook", 23, ACCENT)
+    var brand := Label.new()
+    brand.text = "SproutBook"
+    brand.add_theme_font_size_override("font_size", 18)
+    brand.add_theme_color_override("font_color", ACCENT)
+    brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     top_row.add_child(brand)
 
     scroller = ScrollContainer.new()
@@ -140,25 +146,26 @@ func _build_shell() -> void:
 
     var page_margin := MarginContainer.new()
     page_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _margins(page_margin, 22, 22, 22, 28)
+    _margins(page_margin, 16, 18, 16, 22)
     scroller.add_child(page_margin)
 
     content = VBoxContainer.new()
     content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    content.add_theme_constant_override("separation", 18)
+    content.add_theme_constant_override("separation", 14)
     page_margin.add_child(content)
 
+    # Shorter bottom navigation with clear labels and large tap targets.
     var nav_panel := PanelContainer.new()
-    nav_panel.custom_minimum_size = Vector2(0, 110)
-    nav_panel.add_theme_stylebox_override("panel", _style(Color(0.045,0.075,0.058,0.99), 0, Color.TRANSPARENT, 0))
+    nav_panel.custom_minimum_size = Vector2(0, 88)
+    nav_panel.add_theme_stylebox_override("panel", _style(Color(0.025,0.055,0.042,0.995), 0, Color(0.35,0.55,0.43,0.20), 0))
     root.add_child(nav_panel)
 
     var nav_margin := MarginContainer.new()
-    _margins(nav_margin, 14, 10, 14, 10)
+    _margins(nav_margin, 10, 8, 10, 8)
     nav_panel.add_child(nav_margin)
 
     var nav := HBoxContainer.new()
-    nav.add_theme_constant_override("separation", 10)
+    nav.add_theme_constant_override("separation", 7)
     nav_margin.add_child(nav)
 
     for item in [["home","Home"],["schedule","Schedule"],["parenting","Parenting"],["more","More"]]:
@@ -166,8 +173,9 @@ func _build_shell() -> void:
         var button := Button.new()
         button.text = item[1]
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        button.custom_minimum_size = Vector2(0, 80)
-        button.add_theme_font_size_override("font_size", 19)
+        button.custom_minimum_size = Vector2(0, 68)
+        button.add_theme_font_size_override("font_size", 17)
+        button.focus_mode = Control.FOCUS_NONE
         button.pressed.connect(Callable(self,"show_page").bind(key))
         nav.add_child(button)
         nav_buttons[key] = button
@@ -179,6 +187,70 @@ func _build_shell() -> void:
     add_child(modal_layer)
 
     _refresh_child_selector()
+
+func _make_app_theme() -> Theme:
+    var th := Theme.new()
+    th.default_font_size = 18
+
+    var input_normal := _style(Color(0.045,0.095,0.073,0.98), 16, Color(0.45,0.62,0.52,0.42), 1)
+    var input_focus := _style(Color(0.055,0.115,0.085,1.0), 16, ACCENT, 2)
+    var menu_panel := _style(Color(0.035,0.075,0.058,1.0), 16, Color(0.45,0.62,0.52,0.50), 1)
+    var menu_hover := _style(Color(0.12,0.20,0.15,1.0), 10, Color.TRANSPARENT, 0)
+    var no_focus := StyleBoxEmpty.new()
+
+    for type_name in ["LineEdit","TextEdit"]:
+        th.set_stylebox("normal", type_name, input_normal)
+        th.set_stylebox("focus", type_name, input_focus)
+        th.set_color("font_color", type_name, TEXT)
+        th.set_color("font_placeholder_color", type_name, Color(0.66,0.72,0.67,0.78))
+        th.set_color("caret_color", type_name, ACCENT)
+        th.set_color("selection_color", type_name, Color(0.48,0.38,0.22,0.58))
+        th.set_font_size("font_size", type_name, 18)
+
+    th.set_stylebox("normal", "OptionButton", input_normal)
+    th.set_stylebox("hover", "OptionButton", input_focus)
+    th.set_stylebox("pressed", "OptionButton", input_focus)
+    th.set_stylebox("focus", "OptionButton", no_focus)
+    th.set_color("font_color", "OptionButton", TEXT)
+    th.set_color("font_hover_color", "OptionButton", TEXT)
+    th.set_color("font_pressed_color", "OptionButton", TEXT)
+    th.set_font_size("font_size", "OptionButton", 18)
+
+    th.set_stylebox("panel", "PopupMenu", menu_panel)
+    th.set_stylebox("hover", "PopupMenu", menu_hover)
+    th.set_color("font_color", "PopupMenu", TEXT)
+    th.set_color("font_hover_color", "PopupMenu", TEXT)
+    th.set_font_size("font_size", "PopupMenu", 18)
+
+    th.set_stylebox("focus", "Button", no_focus)
+    th.set_color("font_color", "Button", TEXT)
+    th.set_color("font_hover_color", "Button", TEXT)
+    th.set_color("font_pressed_color", "Button", TEXT)
+
+    th.set_color("font_color", "CheckButton", TEXT)
+    th.set_color("font_color", "CheckBox", TEXT)
+    th.set_font_size("font_size", "CheckButton", 18)
+    th.set_font_size("font_size", "CheckBox", 18)
+    return th
+
+
+func _style(color: Color, radius = 22, border_color = BORDER, border_width = 1) -> StyleBoxFlat:
+    var box := StyleBoxFlat.new()
+    box.bg_color = color
+    box.corner_radius_top_left = radius
+    box.corner_radius_top_right = radius
+    box.corner_radius_bottom_left = radius
+    box.corner_radius_bottom_right = radius
+    box.border_width_left = border_width
+    box.border_width_top = border_width
+    box.border_width_right = border_width
+    box.border_width_bottom = border_width
+    box.border_color = border_color
+    box.content_margin_left = 16
+    box.content_margin_right = 16
+    box.content_margin_top = 13
+    box.content_margin_bottom = 13
+    return box
 
 func _style(color: Color, radius = 24, border_color = BORDER, border_width = 1) -> StyleBoxFlat:
     var s := StyleBoxFlat.new()
@@ -212,32 +284,49 @@ func _label(value: String, font_size = 21, color = TEXT) -> Label:
     l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     return l
 
+
 func _button(value: String, action: Callable, primary = false) -> Button:
     var b := Button.new()
     b.text = value
-    b.custom_minimum_size = Vector2(0, 60)
-    b.add_theme_font_size_override("font_size", 20)
-    b.add_theme_stylebox_override("normal", _style(Color(0.29,0.27,0.20,0.96) if primary else BG_PANEL_2, 18, ACCENT if primary else BORDER, 2 if primary else 1))
-    b.add_theme_stylebox_override("pressed", _style(Color(0.23,0.30,0.22,1), 18, ACCENT, 2))
+    b.custom_minimum_size = Vector2(0, 56)
+    b.add_theme_font_size_override("font_size", 18)
+    b.focus_mode = Control.FOCUS_NONE
+    var normal_color := Color(0.28,0.245,0.17,0.98) if primary else Color(0.075,0.145,0.105,0.98)
+    var border := ACCENT if primary else Color(0.42,0.60,0.49,0.42)
+    b.add_theme_stylebox_override("normal", _style(normal_color, 16, border, 1))
+    b.add_theme_stylebox_override("hover", _style(normal_color.lightened(0.05), 16, border, 1))
+    b.add_theme_stylebox_override("pressed", _style(Color(0.16,0.24,0.17,1), 16, ACCENT, 2))
+    b.add_theme_color_override("font_color", TEXT)
+    b.add_theme_color_override("font_hover_color", TEXT)
+    b.add_theme_color_override("font_pressed_color", TEXT)
     b.pressed.connect(action)
     return b
+
 
 func _card(title: String, subtitle = "") -> VBoxContainer:
     var panel := PanelContainer.new()
     panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    panel.add_theme_stylebox_override("panel", _style(BG_PANEL, 28, BORDER, 1))
+    panel.add_theme_stylebox_override("panel", _style(Color(0.045,0.095,0.071,0.94), 22, Color(0.42,0.60,0.49,0.30), 1))
     content.add_child(panel)
     var box := VBoxContainer.new()
-    box.add_theme_constant_override("separation", 12)
+    box.add_theme_constant_override("separation", 10)
     panel.add_child(box)
     if title != "":
-        box.add_child(_label(title, 27, TEXT))
+        box.add_child(_label(title, 24, TEXT))
     if subtitle != "":
-        box.add_child(_label(subtitle, 18, MUTED))
+        box.add_child(_label(subtitle, 16, MUTED))
     return box
 
+
 func _section_title(value: String) -> void:
-    content.add_child(_label(value, 32, TEXT))
+    var wrap := VBoxContainer.new()
+    wrap.add_theme_constant_override("separation", 2)
+    wrap.add_child(_label(value, 29, TEXT))
+    var line := ColorRect.new()
+    line.color = Color(0.62,0.78,0.66,0.16)
+    line.custom_minimum_size = Vector2(0,1)
+    wrap.add_child(line)
+    content.add_child(wrap)
 
 func _clear_content() -> void:
     for node in content.get_children():
@@ -330,32 +419,23 @@ func _refresh_nav() -> void:
         b.add_theme_stylebox_override("normal", _style(Color(0.18,0.17,0.12,0.97) if active else Color(0.05,0.08,0.06,0.90), 22, ACCENT if active else Color.TRANSPARENT, 2 if active else 0))
         b.add_theme_color_override("font_color", TEXT if active else MUTED)
 
+
 func _build_home() -> void:
     var c := _selected_child()
-    _section_title("Today with " + String(c.name))
+    _section_title(String(c.name) + " · " + String(c.mode))
 
-    var quick := _card("Quick actions", "The common stuff is always one tap away.")
+    var quick := _card("Quick log", "Most-used actions, no digging through menus.")
     var qgrid := GridContainer.new()
     qgrid.columns = 2
-    qgrid.add_theme_constant_override("h_separation", 10)
-    qgrid.add_theme_constant_override("v_separation", 10)
+    qgrid.add_theme_constant_override("h_separation", 8)
+    qgrid.add_theme_constant_override("v_separation", 8)
     quick.add_child(qgrid)
-    qgrid.add_child(_button("Log feeding", Callable(self,"show_tool").bind("feeding"), true))
-    qgrid.add_child(_button("Sleep log", Callable(self,"show_tool").bind("sleep")))
-    qgrid.add_child(_button("Add memory", Callable(self,"_open_add_memory")))
-    qgrid.add_child(_button("Help right now", Callable(self,"show_tool").bind("calm")))
+    qgrid.add_child(_button("Feeding", Callable(self,"show_tool").bind("feeding"), true))
+    qgrid.add_child(_button("Sleep", Callable(self,"show_tool").bind("sleep")))
+    qgrid.add_child(_button("New memory", Callable(self,"_open_add_memory")))
+    qgrid.add_child(_button("Help now", Callable(self,"show_tool").bind("calm")))
 
-    var tree_box := _card("Memory Tree", "Each memory grows a leaf. Arrange leaves yourself, or let SproutBook place them automatically.")
-    var actions := HBoxContainer.new()
-    actions.add_theme_constant_override("separation", 10)
-    tree_box.add_child(actions)
-    actions.add_child(_button("+ Memory", Callable(self,"_open_add_memory"), true))
-    actions.add_child(_button("Done arranging" if arranging_tree else "Arrange leaves", Callable(self,"_toggle_arrange")))
-    var counter := _label(str(c.memories.size()) + " leaves", 18, MUTED)
-    counter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    counter.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-    actions.add_child(counter)
-
+    var tree_box := _card("Memory tree", "A calm visual timeline. Tap a leaf to open it; Arrange lets you move leaves to branch spots.")
     var tree = MemoryTree.new()
     tree.name = "MemoryTree"
     tree.set_data(c.memories, arranging_tree)
@@ -364,16 +444,33 @@ func _build_home() -> void:
     tree.memory_moved.connect(_move_memory)
     tree_box.add_child(tree)
 
+    var actions := HBoxContainer.new()
+    actions.add_theme_constant_override("separation", 8)
+    tree_box.add_child(actions)
+    var add_btn := _button("+ Add memory", Callable(self,"_open_add_memory"), true)
+    add_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    actions.add_child(add_btn)
+    var arrange_btn := _button("Done" if arranging_tree else "Arrange", Callable(self,"_toggle_arrange"))
+    arrange_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    actions.add_child(arrange_btn)
+
+    var meta := HBoxContainer.new()
+    tree_box.add_child(meta)
+    var count := _label(str(c.memories.size()) + (" leaf" if c.memories.size() == 1 else " leaves"), 16, MUTED)
+    count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    meta.add_child(count)
+    meta.add_child(_label("Tap leaves for details", 15, MUTED))
+
     if c.memories.is_empty():
-        var empty := _card("Plant the first leaf", "First laugh, first food, a funny quote, a milestone, a rough day you survived — anything worth remembering.")
-        empty.add_child(_button("Add first memory", Callable(self,"_open_add_memory"), true))
+        var empty := _card("Start the tree", "Save a first laugh, funny quote, milestone, photo note, or a hard day you made it through.")
+        empty.add_child(_button("Create the first leaf", Callable(self,"_open_add_memory"), true))
     else:
-        var recent := _card("Recent memories", "Tap a leaf on the tree for details, or open one here.")
-        var start: int = maxi(0, c.memories.size() - 4)
+        var recent := _card("Recent memories", "")
+        var start: int = maxi(0, c.memories.size() - 3)
         for i in range(c.memories.size() - 1, start - 1, -1):
             var m: Dictionary = c.memories[i]
             var mid := String(m.id)
-            recent.add_child(_button(String(m.title) + " · " + String(m.date), Callable(self,"_open_memory_detail").bind(mid)))
+            recent.add_child(_button(String(m.title) + "  ·  " + String(m.date), Callable(self,"_open_memory_detail").bind(mid)))
 
 func _toggle_arrange() -> void:
     arranging_tree = not arranging_tree
@@ -598,50 +695,70 @@ func _delete_appointment(id: String) -> void:
     _save_state()
     refresh_current()
 
+
 func _build_parenting() -> void:
     _section_title("Parenting")
-    var intro := _card("One-stop parent tools", "Big cards, fewer nested menus, and the current child's stage stays visible at the top.")
-    intro.add_child(_label("Current stage: " + String(_selected_child().mode), 20, ACCENT))
+    var intro := _card("Parent tools", "Everything follows " + String(_selected_child().name) + "'s current stage: " + String(_selected_child().mode) + ".")
+    intro.add_child(_label("Choose a tool below. The most-used tools are kept first.", 16, MUTED))
+
     var grid := GridContainer.new()
     grid.columns = 2
-    grid.add_theme_constant_override("h_separation", 10)
-    grid.add_theme_constant_override("v_separation", 10)
+    grid.add_theme_constant_override("h_separation", 8)
+    grid.add_theme_constant_override("v_separation", 8)
     content.add_child(grid)
+
     for item in [
         ["feeding","Feeding","Bottle, breast & pump"],
+        ["sleep","Sleep","Log naps and overnight sleep"],
         ["solids","Solids","Foods tried & reactions"],
-        ["sleep","Sleep","Start/stop sleep sessions"],
-        ["teeth","Teeth","Tap to cycle tooth stage"],
-        ["milestones","Milestones","Stage checklist"],
-        ["calm","Help right now","Three calm steps first"]
+        ["calm","Help now","Three calm steps first"],
+        ["teeth","Teeth","Track observed and erupted teeth"],
+        ["milestones","Milestones","Stage-based checklist"]
     ]:
-        var p := PanelContainer.new()
-        p.custom_minimum_size = Vector2(310, 140)
-        p.add_theme_stylebox_override("panel", _style(BG_PANEL, 24, BORDER, 1))
-        var v := VBoxContainer.new()
-        v.add_theme_constant_override("separation", 6)
-        p.add_child(v)
-        v.add_child(_label(item[1], 23, TEXT))
-        v.add_child(_label(item[2], 16, MUTED))
-        v.add_child(_button("Open", Callable(self,"show_tool").bind(item[0]), item[0] == "calm"))
-        grid.add_child(p)
+        var panel := PanelContainer.new()
+        panel.custom_minimum_size = Vector2(310, 128)
+        panel.add_theme_stylebox_override("panel", _style(Color(0.045,0.095,0.071,0.94), 20, Color(0.42,0.60,0.49,0.30), 1))
+        var box := VBoxContainer.new()
+        box.add_theme_constant_override("separation", 7)
+        panel.add_child(box)
+        var open := _button(item[1], Callable(self,"show_tool").bind(item[0]), item[0] == "calm")
+        open.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        box.add_child(open)
+        box.add_child(_label(item[2], 15, MUTED))
+        grid.add_child(panel)
+
 
 func _build_more() -> void:
     _section_title("More")
-    var grid := GridContainer.new()
-    grid.columns = 2
-    grid.add_theme_constant_override("h_separation", 10)
-    grid.add_theme_constant_override("v_separation", 10)
-    content.add_child(grid)
-    for item in [["inventory","Inventory"],["emergency","Emergency card"],["profile","Profile + settings"],["backup","Backup / import"]]:
-        var b := _button(item[1], Callable(self,"show_tool").bind(item[0]), item[0] == "emergency")
-        b.custom_minimum_size = Vector2(310, 90)
-        grid.add_child(b)
-    var gp := _card("Grandparent mode", "A read-only mode for caregivers who only need to see information.")
+    var intro := _card("Family & app", "Profiles, supplies, emergency information and backups.")
+    intro.add_child(_label("These are less-frequent tools, kept out of the main navigation.", 16, MUTED))
+
+    for item in [
+        ["inventory","Inventory","Track diapers, wipes, formula and household supplies."],
+        ["emergency","Emergency card","Keep important contacts and medical notes together."],
+        ["profile","Profile + settings","Children, stages and app preferences."],
+        ["backup","Backup / import","Copy your SproutBook data to another device."]
+    ]:
+        var panel := PanelContainer.new()
+        panel.add_theme_stylebox_override("panel", _style(Color(0.045,0.095,0.071,0.92), 20, Color(0.42,0.60,0.49,0.28), 1))
+        var row := HBoxContainer.new()
+        row.add_theme_constant_override("separation", 12)
+        panel.add_child(row)
+        var labels := VBoxContainer.new()
+        labels.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        labels.add_child(_label(item[1], 21, TEXT))
+        labels.add_child(_label(item[2], 15, MUTED))
+        row.add_child(labels)
+        var open := _button("Open", Callable(self,"show_tool").bind(item[0]), item[0] == "emergency")
+        open.custom_minimum_size = Vector2(120,54)
+        row.add_child(open)
+        content.add_child(panel)
+
+    var gp := _card("Grandparent mode", "Read-only mode for caregivers who only need to view information.")
     var toggle := CheckButton.new()
     toggle.text = "Grandparent read-only"
     toggle.button_pressed = bool(state.settings.get("grandparent",false))
-    toggle.add_theme_font_size_override("font_size", 20)
+    toggle.add_theme_font_size_override("font_size", 18)
     toggle.toggled.connect(_toggle_grandparent)
     gp.add_child(toggle)
 
