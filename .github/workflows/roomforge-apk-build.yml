@@ -48,6 +48,14 @@ jobs:
           sed -i 's/targetSdk = 37/targetSdk = 36/' /tmp/roomforge/src/RoomForgeScanner-v0.5.0/app/build.gradle.kts
           grep -E 'compileSdk|targetSdk' /tmp/roomforge/src/RoomForgeScanner-v0.5.0/app/build.gradle.kts
 
+      - name: Apply RoomForge compile fixes
+        shell: bash
+        run: |
+          APP=/tmp/roomforge/src/RoomForgeScanner-v0.5.0/app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt
+          sed -i '/import androidx.compose.foundation.background/a import androidx.compose.foundation.isSystemInDarkTheme' "$APP"
+          sed -i 's/ExtendedFloatingActionButton(onClick = onNewScan, text = { Text("New room scan") })/ExtendedFloatingActionButton(onClick = onNewScan) { Text("New room scan") }/' "$APP"
+          grep -n 'isSystemInDarkTheme\|ExtendedFloatingActionButton' "$APP"
+
       - name: Install Gradle 9.6
         shell: bash
         run: |
