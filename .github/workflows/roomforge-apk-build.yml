@@ -8,6 +8,9 @@ on:
 jobs:
   build-roomforge:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v5
 
@@ -21,20 +24,20 @@ jobs:
           test "$(wc -c < /tmp/roomforge/source.zip)" -eq 63249
           unzip -t /tmp/roomforge/source.zip
           unzip -q /tmp/roomforge/source.zip -d /tmp/roomforge/src
-          test -f /tmp/roomforge/src/RoomForgeScanner-v0.5.0/settings.gradle.kts
 
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK
+      - name: Install Android SDK packages
         shell: bash
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-37" "build-tools;36.0.0"
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-37" "build-tools;36.0.0"
 
       - name: Install Gradle 9.6
         shell: bash
