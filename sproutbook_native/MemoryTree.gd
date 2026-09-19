@@ -59,7 +59,7 @@ func _draw() -> void:
     var h := size.y
     var base := Vector2(w*.50,h*.91)
     var top := Vector2(w*.50,h*.17)
-    var alpha := 0.10 + min(memories.size(),16) * .007
+    var alpha: float = 0.10 + float(mini(memories.size(),16)) * 0.007
     for c in [Vector2(.32,.38),Vector2(.50,.30),Vector2(.68,.39),Vector2(.40,.51),Vector2(.61,.52)]:
         draw_circle(Vector2(c.x*w,c.y*h), w*.16, Color(0.28,0.52,0.29,alpha))
     draw_line(base, top, Color("#5b3924"), 34.0, true)
