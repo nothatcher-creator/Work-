@@ -56,6 +56,15 @@ jobs:
         run: |
           ./Godot_v4.7.2-stable_linux.x86_64 --headless --path sproutbook_native --editor --quit
 
+      - name: Smoke test native UI
+        run: |
+          set -o pipefail
+          ./Godot_v4.7.2-stable_linux.x86_64 --headless --path sproutbook_native --quit-after 8 2>&1 | tee smoke.log
+          if grep -E "SCRIPT ERROR|Invalid call|Invalid access|Failed to load script" smoke.log; then
+            echo "Native UI smoke test found a script/runtime error."
+            exit 1
+          fi
+
       - name: Export Android APK
         run: |
           mkdir -p sproutbook_native/build
