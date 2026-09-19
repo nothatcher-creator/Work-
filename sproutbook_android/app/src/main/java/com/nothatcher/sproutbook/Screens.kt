@@ -8,6 +8,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -82,7 +83,7 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.min
 
 @Composable
-private fun ScreenColumn(content: @Composable Column.() -> Unit) {
+private fun ScreenColumn(content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
@@ -97,7 +98,7 @@ private fun ScreenColumn(content: @Composable Column.() -> Unit) {
 private fun SectionCard(
     title: String,
     subtitle: String? = null,
-    content: @Composable Column.() -> Unit
+    content: @Composable ColumnScope.() -> Unit
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
