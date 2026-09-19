@@ -64,8 +64,20 @@ jobs:
           s = s.replace('implementation("androidx.compose.material3:material3")', 'implementation("androidx.compose.material3:material3:1.4.0")')
           s = s.replace('debugImplementation("androidx.compose.ui:ui-tooling")', 'debugImplementation("androidx.compose.ui:ui-tooling:1.11.4")')
           s = s.replace('io.github.sceneview:arsceneview:4.37.0', 'io.github.sceneview:arsceneview:4.33.0')
+          marker = "dependencies {"
+          if "androidx.core:core-ktx:1.17.0" not in s:
+              s = s.replace(marker, marker + '\n    implementation("androidx.core:core:1.17.0")\n    implementation("androidx.core:core-ktx:1.17.0")')
           p.write_text(s)
           PYGRADLE
+          cat >> app/build.gradle.kts <<'EOF'
+
+configurations.all {
+    resolutionStrategy.force(
+        "androidx.core:core:1.17.0",
+        "androidx.core:core-ktx:1.17.0"
+    )
+}
+EOF
           python3 - <<'PY'
           from pathlib import Path
           p = Path("app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt")
