@@ -11,6 +11,7 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
     steps:
       - uses: actions/checkout@v5
 
@@ -19,8 +20,21 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/roomforge
-          cat roomforge-build/chunks/part00.b64               roomforge-build/chunks/part01.b64               roomforge-build/chunks/part02a.b64               roomforge-build/chunks/part02b.b64               roomforge-build/chunks/part03.b64               roomforge-build/chunks/part04.b64               roomforge-build/chunks/part05.b64               roomforge-build/chunks/part06.b64               roomforge-build/chunks/part07.b64               roomforge-build/chunks/part08.b64               roomforge-build/chunks/part09.b64               roomforge-build/chunks/part10a.b64               roomforge-build/chunks/part10b.b64               | tr -d '\r\n ' | base64 --decode > /tmp/roomforge/source.zip
-          echo "archive_bytes=$(wc -c < /tmp/roomforge/source.zip)"
+          cat roomforge-build/chunks/part00.b64 \
+              roomforge-build/chunks/part01.b64 \
+              roomforge-build/chunks/part02a.b64 \
+              roomforge-build/chunks/part02b.b64 \
+              roomforge-build/chunks/part03.b64 \
+              roomforge-build/chunks/part04.b64 \
+              roomforge-build/chunks/part05.b64 \
+              roomforge-build/chunks/part06.b64 \
+              roomforge-build/chunks/part07.b64 \
+              roomforge-build/chunks/part08.b64 \
+              roomforge-build/chunks/part09.b64 \
+              roomforge-build/chunks/part10a.b64 \
+              roomforge-build/chunks/part10b.b64 \
+            | tr -d '\r\n ' \
+            | base64 --decode > /tmp/roomforge/source.zip
           test "$(wc -c < /tmp/roomforge/source.zip)" -eq 63249
           unzip -t /tmp/roomforge/source.zip
           unzip -q /tmp/roomforge/source.zip -d /tmp/roomforge/src
@@ -42,6 +56,7 @@ jobs:
       - name: Install Gradle 9.6
         shell: bash
         run: |
+          set -euo pipefail
           curl -fsSL https://services.gradle.org/distributions/gradle-9.6.0-bin.zip -o /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /tmp/gradle
           echo "/tmp/gradle/gradle-9.6.0/bin" >> "$GITHUB_PATH"
@@ -51,50 +66,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-                    sed -i "s/compileSdk = 37/compileSdk = 36/" app/build.gradle.kts
-          sed -i "s/targetSdk = 37/targetSdk = 36/" app/build.gradle.kts
-          python3 - <<'PYGRADLE'
-          from pathlib import Path
-          p = Path("app/build.gradle.kts")
-          s = p.read_text()
-          s = s.replace('    implementation(platform("androidx.compose:compose-bom:2026.09.00"))\n', '')
-          s = s.replace('implementation("androidx.compose.ui:ui")', 'implementation("androidx.compose.ui:ui:1.11.4")')
-          s = s.replace('implementation("androidx.compose.ui:ui-tooling-preview")', 'implementation("androidx.compose.ui:ui-tooling-preview:1.11.4")')
-          s = s.replace('implementation("androidx.compose.foundation:foundation")', 'implementation("androidx.compose.foundation:foundation:1.11.4")')
-          s = s.replace('implementation("androidx.compose.material3:material3")', 'implementation("androidx.compose.material3:material3:1.4.0")')
-          s = s.replace('debugImplementation("androidx.compose.ui:ui-tooling")', 'debugImplementation("androidx.compose.ui:ui-tooling:1.11.4")')
-          s = s.replace('io.github.sceneview:arsceneview:4.37.0', 'io.github.sceneview:arsceneview:4.33.0')
-          marker = "dependencies {"
-          if "androidx.core:core-ktx:1.17.0" not in s:
-              s = s.replace(marker, marker + '\n    implementation("androidx.core:core:1.17.0")\n    implementation("androidx.core:core-ktx:1.17.0")')
-          p.write_text(s)
-          PYGRADLE
-          cat >> app/build.gradle.kts <<'EOF'
-
-configurations.all {
-    resolutionStrategy.force(
-        "androidx.core:core:1.17.0",
-        "androidx.core:core-ktx:1.17.0"
-    )
-}
-EOF
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt")
-          s = p.read_text()
-          if "import androidx.compose.foundation.isSystemInDarkTheme" not in s:
-              s = s.replace(
-                  "import androidx.compose.foundation.background\n",
-                  "import androidx.compose.foundation.background\nimport androidx.compose.foundation.isSystemInDarkTheme\n"
-              )
-          s = s.replace(
-              'ExtendedFloatingActionButton(onClick = onNewScan, text = { Text("New room scan") })',
-              'ExtendedFloatingActionButton(onClick = onNewScan) { Text("New room scan") }'
-          )
-          p.write_text(s)
-          PY
-          grep -E "compileSdk|targetSdk" app/build.gradle.kts
-          grep -n "isSystemInDarkTheme\|ExtendedFloatingActionButton" app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt
+          python3 -c 'from pathlib import Path; p=Path("app/build.gradle.kts"); s=p.read_text(); s=s.replace("compileSdk = 37","compileSdk = 36").replace("targetSdk = 37","targetSdk = 36"); s=s.replace("    implementation(platform(\"androidx.compose:compose-bom:2026.09.00\"))\\n",""); s=s.replace("implementation(\"androidx.compose.ui:ui\")","implementation(\"androidx.compose.ui:ui:1.11.4\")"); s=s.replace("implementation(\"androidx.compose.ui:ui-tooling-preview\")","implementation(\"androidx.compose.ui:ui-tooling-preview:1.11.4\")"); s=s.replace("implementation(\"androidx.compose.foundation:foundation\")","implementation(\"androidx.compose.foundation:foundation:1.11.4\")"); s=s.replace("implementation(\"androidx.compose.material3:material3\")","implementation(\"androidx.compose.material3:material3:1.4.0\")"); s=s.replace("debugImplementation(\"androidx.compose.ui:ui-tooling\")","debugImplementation(\"androidx.compose.ui:ui-tooling:1.11.4\")"); s=s.replace("io.github.sceneview:arsceneview:4.37.0","io.github.sceneview:arsceneview:4.33.0"); s=s.replace("dependencies {","dependencies {\\n    implementation(\"androidx.core:core:1.17.0\")\\n    implementation(\"androidx.core:core-ktx:1.17.0\")",1) if "androidx.core:core-ktx:1.17.0" not in s else s; s += "\\nconfigurations.all {\\n    resolutionStrategy.force(\\n        \"androidx.core:core:1.17.0\",\\n        \"androidx.core:core-ktx:1.17.0\"\\n    )\\n}\\n"; p.write_text(s)'
+          python3 -c 'from pathlib import Path; p=Path("app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt"); s=p.read_text(); s=s.replace("import androidx.compose.foundation.background\\n","import androidx.compose.foundation.background\\nimport androidx.compose.foundation.isSystemInDarkTheme\\n") if "import androidx.compose.foundation.isSystemInDarkTheme" not in s else s; s=s.replace("ExtendedFloatingActionButton(onClick = onNewScan, text = { Text(\"New room scan\") })","ExtendedFloatingActionButton(onClick = onNewScan) { Text(\"New room scan\") }"); p.write_text(s)'
+          grep -E "compileSdk|targetSdk|sceneview|core-ktx|material3" app/build.gradle.kts
 
       - name: Build RoomForge debug APK
         working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
