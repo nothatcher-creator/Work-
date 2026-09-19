@@ -72,12 +72,23 @@ jobs:
           sed -n '1,120p' app/build.gradle.kts
           cat app/src/main/AndroidManifest.xml
 
+      - name: Apply live AR mesh upgrade
+        working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$GITHUB_WORKSPACE/roomforge-build/patches/LiveTsdfPreviewMesher.kt" app/src/main/java/com/roomforge/scanner/scanner/LiveTsdfPreviewMesher.kt
+          cp "$GITHUB_WORKSPACE/roomforge-build/patches/LiveScanMeshNode.kt" app/src/main/java/com/roomforge/scanner/ui/LiveScanMeshNode.kt
+          python3 "$GITHUB_WORKSPACE/roomforge-build/patches/apply_live_mesh_patch.py"
+          grep -n "versionName" app/build.gradle.kts
+          grep -n "LiveScanMeshNode\|liveMesh()" app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt app/src/main/java/com/roomforge/scanner/scanner/DepthRoomScanner.kt
+
       - name: Build RoomForge debug APK
         working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
         run: gradle :app:assembleDebug --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
-          name: RoomForgeScanner-v0.5.0-debug
+          name: RoomForgeScanner-v0.6.0-debug
           path: /tmp/roomforge/src/RoomForgeScanner-v0.5.0/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
