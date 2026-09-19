@@ -1073,7 +1073,7 @@ func _days_in_month(year: int, month: int) -> int:
     return 29 if leap else 28
 
 func _weekday(year: int, month: int, day: int) -> int:
-    var unix := Time.get_unix_time_from_datetime({"year":year,"month":month,"day":day,"hour":0,"minute":0,"second":0})
+    var unix := Time.get_unix_time_from_datetime_dict({"year":year,"month":month,"day":day,"hour":0,"minute":0,"second":0})
     return int(Time.get_datetime_dict_from_unix_time(unix).weekday)
 
 func _month_name(month: int) -> String:
