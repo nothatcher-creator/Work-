@@ -37,7 +37,7 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-37" "build-tools;36.0.0"
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Install Gradle 9.6
         shell: bash
@@ -45,6 +45,14 @@ jobs:
           curl -fsSL https://services.gradle.org/distributions/gradle-9.6.0-bin.zip -o /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /tmp/gradle
           echo "/tmp/gradle/gradle-9.6.0/bin" >> "$GITHUB_PATH"
+
+      - name: Patch supported Android API
+        working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
+        shell: bash
+        run: |
+          sed -i "s/compileSdk = 37/compileSdk = 36/" app/build.gradle.kts
+          sed -i "s/targetSdk = 37/targetSdk = 36/" app/build.gradle.kts
+          grep -E "compileSdk|targetSdk" app/build.gradle.kts
 
       - name: Build RoomForge debug APK
         working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
