@@ -2,7 +2,7 @@ name: Build SproutBook Native APK
 
 on:
   push:
-    branches: [sproutbook-native-v200-godot]
+    branches: [sproutbook-native-v201-polish]
     paths:
       - 'sproutbook_native/**'
       - '.github/workflows/build-sproutbook-native.yml'
@@ -68,12 +68,12 @@ jobs:
       - name: Export Android APK
         run: |
           mkdir -p sproutbook_native/build
-          ./Godot_v4.7.2-stable_linux.x86_64 --headless --path sproutbook_native --export-debug Android build/SproutBook-v200-native.apk
-          test -s sproutbook_native/build/SproutBook-v200-native.apk
+          ./Godot_v4.7.2-stable_linux.x86_64 --headless --path sproutbook_native --export-debug Android build/SproutBook-v201-native.apk
+          test -s sproutbook_native/build/SproutBook-v201-native.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SproutBook-v200-Native-APK
-          path: sproutbook_native/build/SproutBook-v200-native.apk
+          name: SproutBook-v201-Native-APK
+          path: sproutbook_native/build/SproutBook-v201-native.apk
           if-no-files-found: error
