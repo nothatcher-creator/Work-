@@ -11,12 +11,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Reconstruct RoomForge source archive
+      - name: Reconstruct and verify RoomForge source archive
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/roomforge
-          cat roomforge-build/chunks/part00.b64               roomforge-build/chunks/part01.b64               roomforge-build/chunks/part02.b64               roomforge-build/chunks/part03.b64               roomforge-build/chunks/part04.b64               roomforge-build/chunks/part05.b64               | tr -d '\r\n ' | base64 --decode > /tmp/roomforge/source.zip
+          cat roomforge-build/chunks/part00.b64               roomforge-build/chunks/part01.b64               roomforge-build/chunks/part02.b64               roomforge-build/chunks/part03.b64               roomforge-build/chunks/part04.b64               roomforge-build/chunks/part05.b64               roomforge-build/chunks/part06.b64               roomforge-build/chunks/part07.b64               roomforge-build/chunks/part08.b64               roomforge-build/chunks/part09a.b64               roomforge-build/chunks/part09b.b64               roomforge-build/chunks/part10.b64               | tr -d '\r\n ' > /tmp/roomforge/source.b64
+          test "$(wc -c < /tmp/roomforge/source.b64)" -eq 84332
+          base64 --decode /tmp/roomforge/source.b64 > /tmp/roomforge/source.zip
+          test "$(stat -c%s /tmp/roomforge/source.zip)" -eq 63249
           unzip -t /tmp/roomforge/source.zip
           unzip -q /tmp/roomforge/source.zip -d /tmp/roomforge/src
           test -f /tmp/roomforge/src/RoomForgeScanner-v0.5.0/settings.gradle.kts
