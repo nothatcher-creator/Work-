@@ -252,24 +252,6 @@ func _style(color: Color, radius = 22, border_color = BORDER, border_width = 1) 
     box.content_margin_bottom = 13
     return box
 
-func _style(color: Color, radius = 24, border_color = BORDER, border_width = 1) -> StyleBoxFlat:
-    var s := StyleBoxFlat.new()
-    s.bg_color = color
-    s.corner_radius_top_left = radius
-    s.corner_radius_top_right = radius
-    s.corner_radius_bottom_left = radius
-    s.corner_radius_bottom_right = radius
-    s.border_width_left = border_width
-    s.border_width_top = border_width
-    s.border_width_right = border_width
-    s.border_width_bottom = border_width
-    s.border_color = border_color
-    s.content_margin_left = 18
-    s.content_margin_right = 18
-    s.content_margin_top = 16
-    s.content_margin_bottom = 16
-    return s
-
 func _margins(m: MarginContainer, left: int, top: int, right: int, bottom: int) -> void:
     m.add_theme_constant_override("margin_left", left)
     m.add_theme_constant_override("margin_top", top)
