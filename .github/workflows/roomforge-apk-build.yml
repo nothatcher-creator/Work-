@@ -1,0 +1,52 @@
+name: RoomForge APK Build
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-roomforge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Reconstruct RoomForge source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/roomforge
+          cat roomforge-build/chunks/part00.b64               roomforge-build/chunks/part01.b64               roomforge-build/chunks/part02.b64               roomforge-build/chunks/part03.b64               roomforge-build/chunks/part04.b64               roomforge-build/chunks/part05.b64               | tr -d '\r\n ' | base64 --decode > /tmp/roomforge/source.zip
+          unzip -t /tmp/roomforge/source.zip
+          unzip -q /tmp/roomforge/source.zip -d /tmp/roomforge/src
+          test -f /tmp/roomforge/src/RoomForgeScanner-v0.5.0/settings.gradle.kts
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-37" "build-tools;36.0.0"
+
+      - name: Install Gradle 9.6
+        shell: bash
+        run: |
+          curl -fsSL https://services.gradle.org/distributions/gradle-9.6.0-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp/gradle
+          echo "/tmp/gradle/gradle-9.6.0/bin" >> "$GITHUB_PATH"
+
+      - name: Build RoomForge debug APK
+        working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
+        run: gradle :app:assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RoomForgeScanner-v0.5.0-debug
+          path: /tmp/roomforge/src/RoomForgeScanner-v0.5.0/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
