@@ -57,7 +57,7 @@ func _draw() -> void:
     var h := size.y
 
     # Ground shadow.
-    draw_ellipse(Vector2(w*.50,h*.90), Vector2(w*.22,h*.035), Color(0.0,0.0,0.0,.18))
+    _draw_ellipse_custom(Vector2(w*.50,h*.90), Vector2(w*.22,h*.035), Color(0.0,0.0,0.0,.18))
 
     # Dense canopy painted once. No animation/redraw loop.
     var canopy := [
@@ -119,7 +119,7 @@ func _draw() -> void:
         var id := String(m.get("id",""))
         _draw_leaf(_pos(m,i), _color(String(m.get("kind","memory"))), id == selected_memory, i)
 
-func draw_ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
+func _draw_ellipse_custom(center: Vector2, radii: Vector2, color: Color) -> void:
     var points := PackedVector2Array()
     for i in range(28):
         var a := TAU * float(i) / 28.0
