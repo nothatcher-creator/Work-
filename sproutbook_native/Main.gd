@@ -180,7 +180,7 @@ func _build_shell() -> void:
 
     _refresh_child_selector()
 
-func _style(color: Color, radius := 24, border_color := BORDER, border_width := 1) -> StyleBoxFlat:
+func _style(color: Color, radius = 24, border_color = BORDER, border_width = 1) -> StyleBoxFlat:
     var s := StyleBoxFlat.new()
     s.bg_color = color
     s.corner_radius_top_left = radius
@@ -204,7 +204,7 @@ func _margins(m: MarginContainer, left: int, top: int, right: int, bottom: int) 
     m.add_theme_constant_override("margin_right", right)
     m.add_theme_constant_override("margin_bottom", bottom)
 
-func _label(value: String, font_size := 21, color := TEXT) -> Label:
+func _label(value: String, font_size = 21, color = TEXT) -> Label:
     var l := Label.new()
     l.text = value
     l.add_theme_font_size_override("font_size", font_size)
@@ -212,7 +212,7 @@ func _label(value: String, font_size := 21, color := TEXT) -> Label:
     l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     return l
 
-func _button(value: String, action: Callable, primary := false) -> Button:
+func _button(value: String, action: Callable, primary = false) -> Button:
     var b := Button.new()
     b.text = value
     b.custom_minimum_size = Vector2(0, 60)
@@ -222,7 +222,7 @@ func _button(value: String, action: Callable, primary := false) -> Button:
     b.pressed.connect(action)
     return b
 
-func _card(title: String, subtitle := "") -> VBoxContainer:
+func _card(title: String, subtitle = "") -> VBoxContainer:
     var panel := PanelContainer.new()
     panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     panel.add_theme_stylebox_override("panel", _style(BG_PANEL, 28, BORDER, 1))
