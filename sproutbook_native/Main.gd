@@ -326,7 +326,7 @@ func refresh_current() -> void:
 func _refresh_nav() -> void:
     for key in nav_buttons.keys():
         var b: Button = nav_buttons[key]
-        var active := key == current_page
+        var active: bool = String(key) == current_page
         b.add_theme_stylebox_override("normal", _style(Color(0.18,0.17,0.12,0.97) if active else Color(0.05,0.08,0.06,0.90), 22, ACCENT if active else Color.TRANSPARENT, 2 if active else 0))
         b.add_theme_color_override("font_color", TEXT if active else MUTED)
 
@@ -369,7 +369,7 @@ func _build_home() -> void:
         empty.add_child(_button("Add first memory", Callable(self,"_open_add_memory"), true))
     else:
         var recent := _card("Recent memories", "Tap a leaf on the tree for details, or open one here.")
-        var start := max(0, c.memories.size() - 4)
+        var start: int = maxi(0, c.memories.size() - 4)
         for i in range(c.memories.size() - 1, start - 1, -1):
             var m: Dictionary = c.memories[i]
             var mid := String(m.id)
@@ -673,7 +673,7 @@ func _build_feeding() -> void:
     if c.feeds.is_empty():
         recent.add_child(_label("No feedings logged yet.",18,MUTED))
     else:
-        var start := max(0,c.feeds.size()-8)
+        var start: int = maxi(0,c.feeds.size()-8)
         for i in range(c.feeds.size()-1,start-1,-1):
             var f: Dictionary = c.feeds[i]
             recent.add_child(_label(String(f.kind) + " · " + String(f.amount) + " · " + String(f.time),18,TEXT))
@@ -789,7 +789,7 @@ func _build_sleep() -> void:
     if c.sleep.is_empty():
         recent.add_child(_label("No sleep logged yet.",18,MUTED))
     else:
-        var start := max(0,c.sleep.size()-8)
+        var start: int = maxi(0,c.sleep.size()-8)
         for i in range(c.sleep.size()-1,start-1,-1):
             recent.add_child(_label(str(c.sleep[i].minutes) + " min · " + String(c.sleep[i].time),18,TEXT))
 
@@ -1073,7 +1073,7 @@ func _days_in_month(year: int, month: int) -> int:
     return 29 if leap else 28
 
 func _weekday(year: int, month: int, day: int) -> int:
-    var unix := Time.get_unix_time_from_datetime_dict({"year":year,"month":month,"day":day,"hour":0,"minute":0,"second":0})
+    var unix: int = int(Time.get_unix_time_from_datetime_dict({"year":year,"month":month,"day":day,"hour":0,"minute":0,"second":0}))
     return int(Time.get_datetime_dict_from_unix_time(unix).weekday)
 
 func _month_name(month: int) -> String:
