@@ -2,7 +2,7 @@
     <application
         android:allowBackup="true"
         android:fullBackupContent="true"
-        android:label="SproutBook"
+        android:icon="@mipmap/ic_launcher"\n        android:roundIcon="@mipmap/ic_launcher_round"\n        android:label="SproutBook"
         android:theme="@style/Theme.SproutBook"
         android:usesCleartextTraffic="false">
         <activity
