@@ -1,0 +1,50 @@
+name: Build SproutBook Android v300
+
+on:
+  push:
+    branches: [sproutbook-android-v300]
+    paths:
+      - 'sproutbook_android/**'
+      - '.github/workflows/build-sproutbook-android-v300.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Set up Android SDK
+        run: |
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Build APK
+        working-directory: sproutbook_android
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Rename APK
+        run: |
+          cp sproutbook_android/app/build/outputs/apk/debug/app-debug.apk SproutBook-v300-native-android.apk
+          test -s SproutBook-v300-native-android.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SproutBook-v300-Native-Android-APK
+          path: SproutBook-v300-native-android.apk
+          if-no-files-found: error
