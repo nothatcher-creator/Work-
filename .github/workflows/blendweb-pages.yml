@@ -31,6 +31,20 @@ jobs:
       - name: Validate JavaScript
         run: node --check app.js
 
+      - name: Reject invalid DOM collection calls
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const s = fs.readFileSync('app.js', 'utf8');
+          const bad = [...s.matchAll(/(?<!\$)\$\([^\)\n]+\)\.(forEach|map|filter|some|every|reduce)\b/g)];
+          if (bad.length) {
+            console.error('Single-element $() selector used as a collection:');
+            for (const m of bad) console.error(m[0]);
+            process.exit(1);
+          }
+          console.log('DOM collection selector check passed');
+          NODE
+
       - name: Validate browser dependencies
         run: |
           curl -fsSL --retry 3 --max-time 30 https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js -o /dev/null
