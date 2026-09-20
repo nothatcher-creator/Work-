@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#1e1f22" />
+  <meta name="color-scheme" content="dark" />
+  <title>BlendWeb — Browser 3D Editor</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">B</span><span>BlendWeb</span><small>0.1</small></div>
+      <div class="menu-strip">
+        <button class="menu-btn" data-menu="file">File</button>
+        <button class="menu-btn" data-menu="edit">Edit</button>
+        <button class="menu-btn" data-menu="add">Add</button>
+        <button class="menu-btn" data-menu="view">View</button>
+      </div>
+      <div class="top-actions">
+        <button id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
+        <button id="redoBtn" title="Redo (Ctrl+Y)">↷</button>
+        <button id="saveProjectBtn" class="accent">Save</button>
+        <button id="renderBtn" title="Save viewport screenshot">Render</button>
+      </div>
+    </header>
+    <div id="menuLayer" class="menu-layer hidden"></div>
+    <main class="workspace">
+      <aside id="leftToolbar" class="toolbar vertical">
+        <button data-tool="select" class="tool active" title="Select (Q)">⌖</button>
+        <button data-tool="translate" class="tool" title="Move (G)">↔</button>
+        <button data-tool="rotate" class="tool" title="Rotate (R)">⟳</button>
+        <button data-tool="scale" class="tool" title="Scale (S)">⤢</button>
+        <div class="tool-sep"></div>
+        <button id="addCubeQuick" class="tool" title="Add Cube">◫</button>
+        <button id="duplicateBtn" class="tool" title="Duplicate (Shift+D)">⧉</button>
+        <button id="deleteBtn" class="tool danger" title="Delete">⌫</button>
+      </aside>
+      <section id="viewportWrap" class="viewport-wrap">
+        <canvas id="viewport"></canvas>
+        <div class="viewport-top-left">
+          <button id="modeBtn" class="pill">Object Mode ▾</button>
+          <button id="snapBtn" class="icon-pill" title="Toggle snapping">⌁</button>
+          <span id="sceneStats" class="status-pill">0 objects</span>
+        </div>
+        <div class="viewport-top-right">
+          <button data-shading="solid" class="shade active" title="Solid">●</button>
+          <button data-shading="material" class="shade" title="Material Preview">◉</button>
+          <button data-shading="wire" class="shade" title="Wireframe">◎</button>
+        </div>
+        <div class="axis-widget">
+          <button data-view="top" class="axis z">Z</button>
+          <button data-view="front" class="axis y">Y</button>
+          <button data-view="right" class="axis x">X</button>
+          <button id="homeView" class="home-axis">⌂</button>
+        </div>
+        <div id="selectionHint" class="selection-hint">Tap an object to select • drag empty space to orbit</div>
+      </section>
+      <aside id="rightPanel" class="right-panel">
+        <section class="panel outliner-panel">
+          <div class="panel-title"><span>Scene Collection</span><div><button id="addObjectBtn" title="Add object">＋</button><button id="panelCollapseBtn" title="Hide panel">›</button></div></div>
+          <div id="outliner" class="outliner"></div>
+        </section>
+        <section class="panel properties-panel">
+          <div class="tabs" id="propertyTabs">
+            <button data-tab="object" class="tab active">Object</button>
+            <button data-tab="material" class="tab">Material</button>
+            <button data-tab="scene" class="tab">Scene</button>
+          </div>
+          <div id="propertiesContent" class="properties-content"></div>
+        </section>
+      </aside>
+    </main>
+    <footer class="statusbar">
+      <div id="statusText">Ready</div>
+      <div class="status-right"><span id="transformModeText">Select</span><span id="fpsText">60 FPS</span></div>
+    </footer>
+    <nav class="mobile-dock">
+      <button data-mobile="outliner">Scene</button>
+      <button id="mobileAdd">＋ Add</button>
+      <button data-mobile="properties">Properties</button>
+    </nav>
+    <div id="bottomSheet" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div id="bottomSheetContent"></div>
+    </div>
+    <input id="fileInput" type="file" hidden />
+  </div>
+  <template id="numberRowTemplate">
+    <label class="field-row"><span></span><input type="number" step="0.01" /></label>
+  </template>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
