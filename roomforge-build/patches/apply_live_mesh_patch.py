@@ -9,8 +9,8 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 gradle = root / "app/build.gradle.kts"
 s = gradle.read_text()
-s = s.replace("versionCode = 5", "versionCode = 6")
-s = s.replace('versionName = "0.5.0"', 'versionName = "0.6.0"')
+s = s.replace("versionCode = 5", "versionCode = 7")
+s = s.replace('versionName = "0.5.0"', 'versionName = "0.6.1"')
 gradle.write_text(s)
 
 scanner = root / "app/src/main/java/com/roomforge/scanner/scanner/DepthRoomScanner.kt"
@@ -64,22 +64,33 @@ s = replace_once(
 )
 live_method = r'''
     private fun scheduleLiveMesh(generationAtSchedule: Long) {
+        val current = state.get()
+        if (current.framesIntegrated < 3) return
+
         val now = System.nanoTime()
-        val intervalNanos = if (state.get().voxelCount < 45_000) 320_000_000L else 480_000_000L
+        val intervalNanos = if (current.voxelCount < 45_000) 550_000_000L else 850_000_000L
         if (now - lastLiveMeshRequestNanos < intervalNanos) return
         if (!liveMeshBusy.compareAndSet(false, true)) return
         lastLiveMeshRequestNanos = now
 
+        // This method is called on the scanner worker immediately after integration. Snapshot here,
+        // before handing immutable data to the mesher, so the TSDF map is never read concurrently
+        // while the next depth frame mutates it.
+        val snapshot = try {
+            grid.snapshot()
+        } catch (_: Throwable) {
+            liveMeshBusy.set(false)
+            return
+        }
+
         liveMeshWorker.execute {
             try {
-                if (generation.get() != generationAtSchedule) return@execute
-                val snapshot = grid.snapshot()
                 if (generation.get() != generationAtSchedule) return@execute
                 val revision = liveMeshRevision.incrementAndGet()
                 val mesh = LiveTsdfPreviewMesher.build(snapshot, grid.voxelSizeMeters, revision)
                 if (generation.get() == generationAtSchedule) liveMeshState.set(mesh)
             } catch (_: Throwable) {
-                // The preview is optional; geometry fusion keeps running even if visualization fails.
+                // Live visualization is optional. Never stop depth fusion if preview meshing fails.
             } finally {
                 liveMeshBusy.set(false)
             }
@@ -162,7 +173,7 @@ toggle = r'''                if (stats.framesIntegrated > 0) {
                         Column(Modifier.weight(1f)) {
                             Text("Live AR mesh", style = MaterialTheme.typography.labelLarge)
                             Text(
-                                if (liveMesh.triangleCount > 0) "${liveMesh.triangleCount} preview triangles • updates as you move" else "Building the first surface preview…",
+                                if (liveMesh.triangleCount > 0) "${liveMesh.triangleCount} preview triangles • updates as you move" else "Live mesh starts after tracking settles…",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
