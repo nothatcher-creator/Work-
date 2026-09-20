@@ -20,7 +20,7 @@
 <body>
   <div id="app">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">B</span><span>BlendWeb</span><small>0.3</small></div>
+      <div class="brand"><span class="brand-mark">B</span><span>BlendWeb</span><small>0.4</small></div>
       <div class="menu-strip">
         <button class="menu-btn" data-menu="file">File</button>
         <button class="menu-btn" data-menu="edit">Edit</button>
@@ -56,9 +56,10 @@
           <span id="sceneStats" class="status-pill">0 objects</span>
         </div>
         <div class="viewport-top-right">
-          <button data-shading="solid" class="shade active" title="Solid">●</button>
-          <button data-shading="material" class="shade" title="Material Preview">◉</button>
           <button data-shading="wire" class="shade" title="Wireframe">◎</button>
+          <button data-shading="solid" class="shade active" title="Solid Studio">●</button>
+          <button data-shading="material" class="shade" title="Material Preview">◉</button>
+          <button data-shading="rendered" class="shade" title="Rendered">◐</button>
         </div>
         <div class="axis-widget">
           <button data-view="top" class="axis z">Z</button>
@@ -66,7 +67,7 @@
           <button data-view="right" class="axis x">X</button>
           <button id="homeView" class="home-axis">⌂</button>
         </div>
-        <div id="selectionHint" class="selection-hint">Tap to select • drop .blend files directly into the viewport • ± enables multi-select</div>
+        <div id="selectionHint" class="selection-hint">Wire • Solid • Material Preview • Rendered • drop .blend directly into viewport</div>
       </section>
       <aside id="rightPanel" class="right-panel">
         <section class="panel outliner-panel">
@@ -97,10 +98,29 @@
       <div id="bottomSheetContent"></div>
     </div>
     <input id="fileInput" type="file" hidden />
+    <div id="bootError" class="boot-error hidden">
+      <strong>BlendWeb failed to start</strong>
+      <div id="bootErrorText">A browser module failed to load.</div>
+      <button onclick="location.reload()">Reload</button>
+    </div>
   </div>
   <template id="numberRowTemplate">
     <label class="field-row"><span></span><input type="number" step="0.01" /></label>
   </template>
+  <script>
+    (() => {
+      const show = message => {
+        const box = document.getElementById('bootError');
+        const text = document.getElementById('bootErrorText');
+        if (!box || window.__BLENDWEB_READY__) return;
+        text.textContent = message || 'A browser module failed to load.';
+        box.classList.remove('hidden');
+      };
+      addEventListener('error', e => show(e.message || 'A browser module failed to load.'));
+      addEventListener('unhandledrejection', e => show(String(e.reason?.message || e.reason || 'Unhandled startup error')));
+      setTimeout(() => { if (!window.__BLENDWEB_READY__) show('Startup took too long. Reload once; if it persists, the message above helps identify the failing module.'); }, 12000);
+    })();
+  </script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
