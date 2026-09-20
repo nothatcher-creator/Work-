@@ -31,6 +31,9 @@ jobs:
       - name: Validate JavaScript
         run: node --check app.js
 
+      - name: Validate Blender parser dependency
+        run: curl -fsSL --retry 3 --max-time 30 https://cdn.jsdelivr.net/npm/jsblender@0.0.4/+esm -o /dev/null
+
       - name: Build isolated Pages artifact
         run: |
           mkdir -p _site
