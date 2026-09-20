@@ -83,12 +83,21 @@ jobs:
           grep -n "versionName" app/build.gradle.kts
           grep -n "LiveScanMeshNode\|liveMesh()" app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt app/src/main/java/com/roomforge/scanner/scanner/DepthRoomScanner.kt
 
+      - name: Apply dense instant 3D upgrade
+        working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/roomforge-build/patches/apply_dense_depth_patch.py"
+          grep -n "versionName\|versionCode" app/build.gradle.kts
+          grep -n "AUTOMATIC\|planeRenderer = false\|acquireDepthImage16Bits\|isDenseDepth"             app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt             app/src/main/java/com/roomforge/scanner/scanner/DepthRoomScanner.kt             app/src/main/java/com/roomforge/scanner/scanner/VoxelGrid.kt
+
       - name: Build RoomForge debug APK
         working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
         run: gradle :app:assembleDebug --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
-          name: RoomForgeScanner-v0.6.1-debug
+          name: RoomForgeScanner-v0.7.0-debug
           path: /tmp/roomforge/src/RoomForgeScanner-v0.5.0/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
