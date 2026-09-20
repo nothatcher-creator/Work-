@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#1e1f22" />
   <meta name="color-scheme" content="dark" />
   <title>BlendWeb — Browser 3D Editor</title>
-  <link rel="manifest" href="manifest.webmanifest?v=0.6" />
-  <link rel="stylesheet" href="styles.css?v=0.6" />
+  <link rel="manifest" href="manifest.webmanifest?v=0.7" />
+  <link rel="stylesheet" href="styles.css?v=0.7" />
   <script type="importmap">
   {
     "imports": {
@@ -20,7 +20,7 @@
 <body>
   <div id="app">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">B</span><span>BlendWeb</span><small>0.6</small></div>
+      <div class="brand"><span class="brand-mark">B</span><span>BlendWeb</span><small>0.7</small></div>
       <div class="menu-strip">
         <button class="menu-btn" data-menu="file">File</button>
         <button class="menu-btn" data-menu="edit">Edit</button>
@@ -109,23 +109,53 @@
   </template>
   <script>
     (() => {
+      window.__BLENDWEB_READY__ = false;
+      let pendingStartupError = '';
+      const box = () => document.getElementById('bootError');
+      const text = () => document.getElementById('bootErrorText');
+
+      const show = message => {
+        if (window.__BLENDWEB_READY__) return;
+        const b = box(), t = text();
+        if (!b || !t) return;
+        t.textContent = message || 'BlendWeb did not finish starting.';
+        b.classList.remove('hidden');
+      };
+
+      const hide = () => box()?.classList.add('hidden');
+
+      window.__BLENDWEB_MARK_READY__ = () => {
+        window.__BLENDWEB_READY__ = true;
+        hide();
+      };
+
+      window.__BLENDWEB_FATAL__ = error => {
+        const message = String(error?.message || error || 'Unknown startup error');
+        pendingStartupError = message;
+        show(message);
+      };
+
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations()
           .then(regs => Promise.all(regs.map(reg => reg.unregister())))
           .catch(() => {});
       }
-      const show = message => {
-        const box = document.getElementById('bootError');
-        const text = document.getElementById('bootErrorText');
-        if (!box || window.__BLENDWEB_READY__) return;
-        text.textContent = message || 'A browser module failed to load.';
-        box.classList.remove('hidden');
-      };
-      addEventListener('error', e => show(e.message || 'A browser module failed to load.'));
-      addEventListener('unhandledrejection', e => show(String(e.reason?.message || e.reason || 'Unhandled startup error')));
-      setTimeout(() => { if (!window.__BLENDWEB_READY__) show('Startup took too long. Reload once; if it persists, the message above helps identify the failing module.'); }, 12000);
+
+      addEventListener('error', e => {
+        if (e?.error || e?.message) pendingStartupError = String(e.message || e.error?.message || e.error);
+      });
+
+      addEventListener('unhandledrejection', e => {
+        pendingStartupError = String(e.reason?.message || e.reason || 'Unhandled startup error');
+      });
+
+      setTimeout(() => {
+        if (!window.__BLENDWEB_READY__) {
+          show(pendingStartupError || 'BlendWeb did not finish starting. Reload the page and try again.');
+        }
+      }, 6000);
     })();
   </script>
-  <script type="module" src="app.js?v=0.6"></script>
+  <script type="module" src="app.js?v=0.7"></script>
 </body>
 </html>
