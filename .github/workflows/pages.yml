@@ -1,47 +1,47 @@
-name: Deploy BlendWeb to GitHub Pages
+name: Validate and publish BlendWeb
 
 on:
   push:
     branches: ["blendweb-web"]
-  workflow_dispatch:
+    paths:
+      - "index.html"
+      - "styles.css"
+      - "app.js"
+      - "manifest.webmanifest"
+      - "sw.js"
+      - "icon.svg"
+      - ".nojekyll"
+      - ".github/workflows/pages.yml"
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
+  actions: write
 
 concurrency:
-  group: "pages"
+  group: "blendweb-source"
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  validate-and-dispatch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout BlendWeb
+      - name: Checkout BlendWeb source
         uses: actions/checkout@v6
 
       - name: Validate JavaScript
         run: node --check app.js
 
-      - name: Build isolated Pages artifact
+      - name: Verify site files
         run: |
-          mkdir -p _site
-          cp index.html styles.css app.js manifest.webmanifest sw.js icon.svg .nojekyll _site/
+          test -f index.html
+          test -f styles.css
+          test -f app.js
+          test -f manifest.webmanifest
+          test -f sw.js
+          test -f icon.svg
+          test -f .nojekyll
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload static site
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: "_site"
-
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-# Redeploy after enabling GitHub Pages
+      - name: Trigger Pages deployment from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run blendweb-pages.yml --ref main
