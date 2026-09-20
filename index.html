@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#1e1f22" />
   <meta name="color-scheme" content="dark" />
   <title>BlendWeb — Browser 3D Editor</title>
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.webmanifest?v=0.5" />
+  <link rel="stylesheet" href="styles.css?v=0.5" />
   <script type="importmap">
   {
     "imports": {
@@ -20,7 +20,7 @@
 <body>
   <div id="app">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">B</span><span>BlendWeb</span><small>0.4</small></div>
+      <div class="brand"><span class="brand-mark">B</span><span>BlendWeb</span><small>0.5</small></div>
       <div class="menu-strip">
         <button class="menu-btn" data-menu="file">File</button>
         <button class="menu-btn" data-menu="edit">Edit</button>
@@ -109,6 +109,11 @@
   </template>
   <script>
     (() => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations()
+          .then(regs => Promise.all(regs.map(reg => reg.unregister())))
+          .catch(() => {});
+      }
       const show = message => {
         const box = document.getElementById('bootError');
         const text = document.getElementById('bootErrorText');
@@ -121,6 +126,6 @@
       setTimeout(() => { if (!window.__BLENDWEB_READY__) show('Startup took too long. Reload once; if it persists, the message above helps identify the failing module.'); }, 12000);
     })();
   </script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=0.5"></script>
 </body>
 </html>
