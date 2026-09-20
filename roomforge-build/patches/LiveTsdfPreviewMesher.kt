@@ -22,8 +22,9 @@ data class LiveMeshFrame(
 }
 
 object LiveTsdfPreviewMesher {
-    const val MAX_TRIANGLES = 8_000
-    private const val MAX_SOURCE_CELLS = 14_000
+    // Keep the live overlay deliberately modest. The saved mesh is still full quality.
+    const val MAX_TRIANGLES = 3_000
+    private const val MAX_SOURCE_CELLS = 6_000
 
     private val directions = arrayOf(
         intArrayOf(1, 0, 0), intArrayOf(-1, 0, 0),
@@ -39,12 +40,12 @@ object LiveTsdfPreviewMesher {
         if (volume.isEmpty()) return LiveMeshFrame(revision = revision)
 
         fun isPreviewSurface(cell: TsdfCell?): Boolean = cell != null &&
-            cell.weight >= 0.58f &&
-            abs(cell.tsdf) <= 0.62f &&
-            (cell.viewCount >= 2 || cell.weight >= 1.35f)
+            cell.weight >= 0.62f &&
+            abs(cell.tsdf) <= 0.58f &&
+            (cell.viewCount >= 2 || cell.weight >= 1.45f)
 
         val surfaceEntries = volume.entries.filter { isPreviewSurface(it.value) }
-        if (surfaceEntries.size < 24) {
+        if (surfaceEntries.size < 36) {
             return LiveMeshFrame(revision = revision, sourceCellCount = surfaceEntries.size)
         }
 
