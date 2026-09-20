@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#1e1f22" />
   <meta name="color-scheme" content="dark" />
   <title>BlendWeb — Browser 3D Editor</title>
-  <link rel="manifest" href="manifest.webmanifest?v=0.7" />
-  <link rel="stylesheet" href="styles.css?v=0.7" />
+  <link rel="manifest" href="manifest.webmanifest?v=0.8" />
+  <link rel="stylesheet" href="styles.css?v=0.8" />
   <script type="importmap">
   {
     "imports": {
@@ -20,7 +20,7 @@
 <body>
   <div id="app">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">B</span><span>BlendWeb</span><small>0.7</small></div>
+      <div class="brand"><span class="brand-mark">B</span><span>BlendWeb</span><small>0.8</small></div>
       <div class="menu-strip">
         <button class="menu-btn" data-menu="file">File</button>
         <button class="menu-btn" data-menu="edit">Edit</button>
@@ -100,7 +100,7 @@
     <input id="fileInput" type="file" hidden />
     <div id="bootError" class="boot-error hidden">
       <strong>BlendWeb failed to start</strong>
-      <div id="bootErrorText">A browser module failed to load.</div>
+      <div id="bootErrorText"></div>
       <button onclick="location.reload()">Reload</button>
     </div>
   </div>
@@ -156,6 +156,6 @@
       }, 6000);
     })();
   </script>
-  <script type="module" src="app.js?v=0.7"></script>
+  <script type="module" src="app.js?v=0.8"></script>
 </body>
 </html>
