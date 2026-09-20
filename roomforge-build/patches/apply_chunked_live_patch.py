@@ -137,13 +137,15 @@ s = replace_once(
     """        if (applied > 0f) {
             existing.distanceSum += distance * applied
             existing.weight += applied
-            existing.viewMask = existing.viewMask or viewBit
+        }
+        existing.viewMask = existing.viewMask or viewBit
 """,
     """        if (applied > 0f) {
             existing.distanceSum += distance * applied
             existing.weight += applied
-            existing.viewMask = existing.viewMask or viewBit
             markLiveChunkDirty(key)
+        }
+        existing.viewMask = existing.viewMask or viewBit
 """,
     "mark existing dirty",
 )
