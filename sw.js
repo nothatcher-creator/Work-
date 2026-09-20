@@ -1,5 +1,18 @@
-const CACHE='blendweb-v4';
-const SHELL=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon.svg'];
-self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())));
-self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(res=>{const copy=res.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return res}).catch(()=>caches.match('./index.html'))))});
+const VERSION='0.5';
+self.addEventListener('install',event=>event.waitUntil(self.skipWaiting()));
+self.addEventListener('activate',event=>event.waitUntil((async()=>{
+  const keys=await caches.keys();
+  await Promise.all(keys.filter(k=>k.startsWith('blendweb-')).map(k=>caches.delete(k)));
+  await self.clients.claim();
+  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  for(const client of windows){
+    try{
+      const url=new URL(client.url);
+      if(url.origin!==self.location.origin) continue;
+      if(url.searchParams.get('_bw')===VERSION) continue;
+      url.searchParams.set('_bw',VERSION);
+      await client.navigate(url.href);
+    }catch{}
+  }
+  await self.registration.unregister();
+})()));
