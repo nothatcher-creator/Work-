@@ -31,8 +31,13 @@ jobs:
       - name: Validate JavaScript
         run: node --check app.js
 
-      - name: Validate Blender parser dependency
-        run: curl -fsSL --retry 3 --max-time 30 https://cdn.jsdelivr.net/npm/jsblender@0.0.4/+esm -o /dev/null
+      - name: Validate browser dependencies
+        run: |
+          curl -fsSL --retry 3 --max-time 30 https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js -o /dev/null
+          curl -fsSL --retry 3 --max-time 30 https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/environments/RoomEnvironment.js -o /dev/null
+          curl -fsSL --retry 3 --max-time 30 https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/lights/RectAreaLightUniformsLib.js -o /dev/null
+          curl -fsSL --retry 3 --max-time 30 https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/helpers/RectAreaLightHelper.js -o /dev/null
+          curl -fsSL --retry 3 --max-time 30 https://cdn.jsdelivr.net/npm/jsblender@0.0.4/+esm -o /dev/null
 
       - name: Build isolated Pages artifact
         run: |
