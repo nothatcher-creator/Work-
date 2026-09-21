@@ -1,0 +1,103 @@
+name: RoomForge APK Build
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-roomforge:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Reconstruct RoomForge source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/roomforge
+          cat roomforge-build/chunks/part00.b64 \
+              roomforge-build/chunks/part01.b64 \
+              roomforge-build/chunks/part02a.b64 \
+              roomforge-build/chunks/part02b.b64 \
+              roomforge-build/chunks/part03.b64 \
+              roomforge-build/chunks/part04.b64 \
+              roomforge-build/chunks/part05.b64 \
+              roomforge-build/chunks/part06.b64 \
+              roomforge-build/chunks/part07.b64 \
+              roomforge-build/chunks/part08.b64 \
+              roomforge-build/chunks/part09.b64 \
+              roomforge-build/chunks/part10a.b64 \
+              roomforge-build/chunks/part10b.b64 \
+            | tr -d '\r\n ' \
+            | base64 --decode > /tmp/roomforge/source.zip
+          test "$(wc -c < /tmp/roomforge/source.zip)" -eq 63249
+          unzip -t /tmp/roomforge/source.zip
+          unzip -q /tmp/roomforge/source.zip -d /tmp/roomforge/src
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install Gradle 9.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-9.6.0-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp/gradle
+          echo "/tmp/gradle/gradle-9.6.0/bin" >> "$GITHUB_PATH"
+
+      - name: Patch build compatibility
+        working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'cGx1Z2lucyB7CiAgICBpZCgiY29tLmFuZHJvaWQuYXBwbGljYXRpb24iKQogICAgaWQoIm9yZy5qZXRicmFpbnMua290bGluLnBsdWdpbi5jb21wb3NlIikKfQoKYW5kcm9pZCB7CiAgICBuYW1lc3BhY2UgPSAiY29tLnJvb21mb3JnZS5zY2FubmVyIgogICAgY29tcGlsZVNkayA9IDM2CgogICAgZGVmYXVsdENvbmZpZyB7CiAgICAgICAgYXBwbGljYXRpb25JZCA9ICJjb20ucm9vbWZvcmdlLnNjYW5uZXIiCiAgICAgICAgbWluU2RrID0gMjQKICAgICAgICB0YXJnZXRTZGsgPSAzNgogICAgICAgIHZlcnNpb25Db2RlID0gNQogICAgICAgIHZlcnNpb25OYW1lID0gIjAuNS4wIgogICAgfQoKICAgIGJ1aWxkVHlwZXMgewogICAgICAgIHJlbGVhc2UgewogICAgICAgICAgICBpc01pbmlmeUVuYWJsZWQgPSBmYWxzZQogICAgICAgICAgICBwcm9ndWFyZEZpbGVzKAogICAgICAgICAgICAgICAgZ2V0RGVmYXVsdFByb2d1YXJkRmlsZSgicHJvZ3VhcmQtYW5kcm9pZC1vcHRpbWl6ZS50eHQiKSwKICAgICAgICAgICAgICAgICJwcm9ndWFyZC1ydWxlcy5wcm8iCiAgICAgICAgICAgICkKICAgICAgICB9CiAgICB9CgogICAgY29tcGlsZU9wdGlvbnMgewogICAgICAgIHNvdXJjZUNvbXBhdGliaWxpdHkgPSBKYXZhVmVyc2lvbi5WRVJTSU9OXzE3CiAgICAgICAgdGFyZ2V0Q29tcGF0aWJpbGl0eSA9IEphdmFWZXJzaW9uLlZFUlNJT05fMTcKICAgIH0KCiAgICBidWlsZEZlYXR1cmVzIHsKICAgICAgICBjb21wb3NlID0gdHJ1ZQogICAgfQoKICAgIHBhY2thZ2luZyB7CiAgICAgICAgcmVzb3VyY2VzLmV4Y2x1ZGVzICs9ICIvTUVUQS1JTkYve0FMMi4wLExHUEwyLjF9IgogICAgfQp9CgpkZXBlbmRlbmNpZXMgewogICAgaW1wbGVtZW50YXRpb24oImFuZHJvaWR4LmNvcmU6Y29yZS1rdHg6MS4xNy4wIikKICAgIGltcGxlbWVudGF0aW9uKCJhbmRyb2lkeC5hY3Rpdml0eTphY3Rpdml0eS1jb21wb3NlOjEuMTEuMCIpCiAgICBpbXBsZW1lbnRhdGlvbigiYW5kcm9pZHguY29tcG9zZS51aTp1aToxLjExLjQiKQogICAgaW1wbGVtZW50YXRpb24oImFuZHJvaWR4LmNvbXBvc2UudWk6dWktdG9vbGluZy1wcmV2aWV3OjEuMTEuNCIpCiAgICBpbXBsZW1lbnRhdGlvbigiYW5kcm9pZHguY29tcG9zZS5mb3VuZGF0aW9uOmZvdW5kYXRpb246MS4xMS40IikKICAgIGltcGxlbWVudGF0aW9uKCJhbmRyb2lkeC5jb21wb3NlLm1hdGVyaWFsMzptYXRlcmlhbDM6MS40LjAiKQogICAgaW1wbGVtZW50YXRpb24oIm9yZy5qZXRicmFpbnMua290bGlueDprb3RsaW54LWNvcm91dGluZXMtYW5kcm9pZDoxLjEwLjIiKQogICAgaW1wbGVtZW50YXRpb24oImlvLmdpdGh1Yi5zY2VuZXZpZXc6YXJzY2VuZXZpZXc6NC4zMy4wIikKCiAgICBkZWJ1Z0ltcGxlbWVudGF0aW9uKCJhbmRyb2lkeC5jb21wb3NlLnVpOnVpLXRvb2xpbmc6MS4xMS40IikKfQoKY29uZmlndXJhdGlvbnMuYWxsIHsKICAgIHJlc29sdXRpb25TdHJhdGVneS5mb3JjZSgKICAgICAgICAiYW5kcm9pZHguY29yZTpjb3JlOjEuMTcuMCIsCiAgICAgICAgImFuZHJvaWR4LmNvcmU6Y29yZS1rdHg6MS4xNy4wIgogICAgKQp9Cg==' | base64 --decode > app/build.gradle.kts
+          python3 -c 'from pathlib import Path; p=Path("app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt"); s=p.read_text(); s=s.replace("colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()","colorScheme = lightColorScheme()"); s=s.replace("ExtendedFloatingActionButton(onClick = onNewScan, text = { Text(\"New room scan\") })","ExtendedFloatingActionButton(onClick = onNewScan) { Text(\"New room scan\") }"); p.write_text(s)'
+          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPG1hbmlmZXN0IHhtbG5zOmFuZHJvaWQ9Imh0dHA6Ly9zY2hlbWFzLmFuZHJvaWQuY29tL2Fway9yZXMvYW5kcm9pZCIKICAgIHhtbG5zOnRvb2xzPSJodHRwOi8vc2NoZW1hcy5hbmRyb2lkLmNvbS90b29scyI+CiAgICA8dXNlcy1wZXJtaXNzaW9uIGFuZHJvaWQ6bmFtZT0iYW5kcm9pZC5wZXJtaXNzaW9uLkNBTUVSQSIgLz4KICAgIDx1c2VzLWZlYXR1cmUgYW5kcm9pZDpuYW1lPSJhbmRyb2lkLmhhcmR3YXJlLmNhbWVyYS5hciIgYW5kcm9pZDpyZXF1aXJlZD0idHJ1ZSIgLz4KCiAgICA8YXBwbGljYXRpb24KICAgICAgICBhbmRyb2lkOmFsbG93QmFja3VwPSJmYWxzZSIKICAgICAgICBhbmRyb2lkOmZ1bGxCYWNrdXBDb250ZW50PSJmYWxzZSIKICAgICAgICBhbmRyb2lkOmxhYmVsPSJSb29tRm9yZ2UgU2Nhbm5lciIKICAgICAgICBhbmRyb2lkOnN1cHBvcnRzUnRsPSJ0cnVlIgogICAgICAgIGFuZHJvaWQ6dGhlbWU9IkBzdHlsZS9UaGVtZS5Sb29tRm9yZ2VTY2FubmVyIj4KCiAgICAgICAgPG1ldGEtZGF0YQogICAgICAgICAgICBhbmRyb2lkOm5hbWU9ImNvbS5nb29nbGUuYXIuY29yZSIKICAgICAgICAgICAgYW5kcm9pZDp2YWx1ZT0icmVxdWlyZWQiCiAgICAgICAgICAgIHRvb2xzOnJlcGxhY2U9ImFuZHJvaWQ6dmFsdWUiIC8+CgogICAgICAgIDxhY3Rpdml0eQogICAgICAgICAgICBhbmRyb2lkOm5hbWU9Ii5NYWluQWN0aXZpdHkiCiAgICAgICAgICAgIGFuZHJvaWQ6ZXhwb3J0ZWQ9InRydWUiCiAgICAgICAgICAgIGFuZHJvaWQ6c2NyZWVuT3JpZW50YXRpb249InVuc3BlY2lmaWVkIj4KICAgICAgICAgICAgPGludGVudC1maWx0ZXI+CiAgICAgICAgICAgICAgICA8YWN0aW9uIGFuZHJvaWQ6bmFtZT0iYW5kcm9pZC5pbnRlbnQuYWN0aW9uLk1BSU4iIC8+CiAgICAgICAgICAgICAgICA8Y2F0ZWdvcnkgYW5kcm9pZDpuYW1lPSJhbmRyb2lkLmludGVudC5jYXRlZ29yeS5MQVVOQ0hFUiIgLz4KICAgICAgICAgICAgPC9pbnRlbnQtZmlsdGVyPgogICAgICAgIDwvYWN0aXZpdHk+CiAgICA8L2FwcGxpY2F0aW9uPgo8L21hbmlmZXN0Pgo=' | base64 --decode > app/src/main/AndroidManifest.xml
+          sed -n '1,120p' app/build.gradle.kts
+          cat app/src/main/AndroidManifest.xml
+
+      - name: Apply live AR mesh upgrade
+        working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$GITHUB_WORKSPACE/roomforge-build/patches/LiveTsdfPreviewMesher.kt" app/src/main/java/com/roomforge/scanner/scanner/LiveTsdfPreviewMesher.kt
+          cp "$GITHUB_WORKSPACE/roomforge-build/patches/LiveScanMeshNode.kt" app/src/main/java/com/roomforge/scanner/ui/LiveScanMeshNode.kt
+          python3 "$GITHUB_WORKSPACE/roomforge-build/patches/apply_live_mesh_patch.py"
+          grep -n "versionName" app/build.gradle.kts
+          grep -n "LiveScanMeshNode\|liveMesh()" app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt app/src/main/java/com/roomforge/scanner/scanner/DepthRoomScanner.kt
+
+      - name: Apply dense instant 3D upgrade
+        working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/roomforge-build/patches/apply_dense_depth_patch.py"
+          grep -n "versionName\|versionCode" app/build.gradle.kts
+          grep -n "AUTOMATIC\|planeRenderer = false\|acquireDepthImage16Bits\|isDenseDepth"             app/src/main/java/com/roomforge/scanner/ui/RoomForgeApp.kt             app/src/main/java/com/roomforge/scanner/scanner/DepthRoomScanner.kt             app/src/main/java/com/roomforge/scanner/scanner/VoxelGrid.kt
+
+      - name: Build RoomForge debug APK
+        working-directory: /tmp/roomforge/src/RoomForgeScanner-v0.5.0
+        run: gradle :app:assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RoomForgeScanner-v0.7.0-debug
+          path: /tmp/roomforge/src/RoomForgeScanner-v0.5.0/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
