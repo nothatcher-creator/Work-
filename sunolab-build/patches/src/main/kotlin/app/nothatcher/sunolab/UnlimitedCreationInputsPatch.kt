@@ -2,6 +2,7 @@ package app.nothatcher.sunolab
 
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
+import app.morphe.patcher.patch.BytecodePatchContext
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.patch.stringOption
 
@@ -25,7 +26,11 @@ private val mediumLimitChoices = mapOf(
     "Unlimited (experimental)" to "unlimited",
 )
 
-private fun patchLimit(selection: String?, originalFallback: Int, fingerprint: Fingerprint) {
+private fun BytecodePatchContext.patchLimit(
+    selection: String?,
+    originalFallback: Int,
+    fingerprint: Fingerprint,
+) {
     if (selection == null || selection == "original") return
     val value = normalizeLimit(selection, originalFallback)
     fingerprint.method.addInstructions(0, returnIntInstructions(value))
