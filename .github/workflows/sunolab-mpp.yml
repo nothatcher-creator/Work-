@@ -1,0 +1,58 @@
+name: Build Suno Lab MPP
+
+on:
+  push:
+    branches:
+      - sunolab-mpp-build-20261002
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_ACTOR: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Build Android Morphe patch bundle
+        working-directory: sunolab-build
+        run: gradle :patches:buildAndroid --stacktrace
+
+      - name: Verify Android-ready MPP
+        working-directory: sunolab-build
+        shell: bash
+        run: |
+          set -euo pipefail
+          MPP="$(find patches/build/libs -maxdepth 1 -type f -name '*.mpp' ! -name '*sources*' ! -name '*javadoc*' | head -n1)"
+          test -n "$MPP"
+          unzip -t "$MPP"
+          unzip -l "$MPP" | grep -q 'classes.dex'
+          mkdir -p dist
+          cp "$MPP" dist/SunoLab-0.1.0.mpp
+          sha256sum dist/SunoLab-0.1.0.mpp > dist/SunoLab-0.1.0.mpp.sha256
+
+      - name: Upload MPP
+        uses: actions/upload-artifact@v4
+        with:
+          name: SunoLab-0.1.0-mpp
+          path: |
+            sunolab-build/dist/SunoLab-0.1.0.mpp
+            sunolab-build/dist/SunoLab-0.1.0.mpp.sha256
+          if-no-files-found: error
